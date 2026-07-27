@@ -1,0 +1,10 @@
+node_modules
+.output
+dist
+.git
+.vscode
+.storybook
+*.md
+.gitignore
+.cursorrules
+.cta.json
