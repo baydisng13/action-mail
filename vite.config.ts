@@ -12,8 +12,9 @@ import svgr from 'vite-plugin-svgr'
 
 const config = defineConfig(({ mode }) => ({
   esbuild: {
-    // Strip console/debugger from production bundles only (dev keeps logs).
-    drop: mode === 'production' ? ['console', 'debugger'] : [],
+    // Drop debugger statements in prod. Keep console — server logs are needed
+    // for observability (Vercel function logs, error stacks).
+    drop: mode === 'production' ? ['debugger'] : [],
   },
   // Match TanStack Start + Nitro ordering: nitro() must run after viteReact (see hosting docs).
   plugins: [
