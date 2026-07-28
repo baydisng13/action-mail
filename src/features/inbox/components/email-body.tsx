@@ -1,12 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 
+// Reader: strip the sender's design (backgrounds, colors, multi-column table
+// layouts, custom fonts) down to a clean single-column read — but keep images
+// and links working.
 const READER_CSS = `
-	html,body{margin:0;padding:0}
-	body{font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:#1a1a1a;background:#fff;padding:20px;word-wrap:break-word}
-	img{max-width:100%;height:auto}
-	a{color:#1364d6}
-	table{max-width:100%!important}
-	*{max-width:100%}
+	html,body{margin:0!important;padding:0!important;background:#fff!important}
+	body{max-width:640px;margin:0 auto!important;padding:24px!important;
+		font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif!important;
+		color:#1a1a1a!important;word-break:break-word}
+	*{max-width:100%!important;background-image:none!important;background-color:transparent!important;
+		color:inherit!important;font-family:inherit!important;float:none!important;
+		box-sizing:border-box!important;border-radius:0!important}
+	/* Linearise table-based layouts into one column */
+	table,tbody,thead,tr,td,th{display:block!important;width:auto!important;max-width:100%!important;
+		height:auto!important;border:0!important;padding:0!important}
+	img{height:auto!important;margin:8px 0}
+	h1,h2,h3{line-height:1.3!important;margin:1.2em 0 .4em}
+	h1{font-size:1.5em!important}h2{font-size:1.3em!important}h3{font-size:1.1em!important}
+	p,div,td{margin:0 0 .6em}
+	a{color:#1364d6!important;text-decoration:underline}
+	hr{border:0;border-top:1px solid #e5e5e5;margin:1.2em 0}
+	[style*="display:none"],[style*="display: none"]{display:none!important}
 `;
 const ORIGINAL_CSS = `html,body{margin:0}img{max-width:100%;height:auto}`;
 
