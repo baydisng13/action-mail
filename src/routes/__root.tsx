@@ -7,14 +7,14 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 import appCss from "../styles.css?url";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
-const SITE_TITLE = "Cookflow";
+const SITE_TITLE = "Postscript — the inbox that reads for you";
 const SITE_DESCRIPTION =
-	"Plan meals, organize recipes, and cook with confidence.";
+	"An AI-native email client that extracts the action, not the message.";
 
 interface RouterContext {
 	queryClient: QueryClient;
@@ -43,21 +43,23 @@ function RootLayout() {
 				<HeadContent />
 			</head>
 			<body>
-				<AppShell>
-					<Outlet />
-				</AppShell>
+			<TooltipProvider>
+				<Outlet />
 				<Toaster richColors position="top-right" />
-				<TanStackDevtools
-					config={{ position: "bottom-right" }}
-					plugins={[
-						{
-							name: "Tanstack Router",
-							render: <TanStackRouterDevtoolsPanel />,
-						},
-						TanStackQueryDevtools,
-					]}
-				/>
+				{import.meta.env.DEV && (
+					<TanStackDevtools
+						config={{ position: "bottom-right" }}
+						plugins={[
+							{
+								name: "Tanstack Router",
+								render: <TanStackRouterDevtoolsPanel />,
+							},
+							TanStackQueryDevtools,
+						]}
+					/>
+				)}
 				<Scripts />
+				</TooltipProvider>
 			</body>
 		</html>
 	);
