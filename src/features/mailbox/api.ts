@@ -1,4 +1,5 @@
 import { apiClient } from "@/lib/api-client";
+import type { ImapConnectInput } from "./schemas";
 import {
 	connectUrlResponse,
 	type MailboxSummary,
@@ -12,6 +13,12 @@ export const mailboxApi = {
 	async startConnect(): Promise<string> {
 		const res = await apiClient.post("/api/mailbox/google");
 		return connectUrlResponse.parse(res.data).url;
+	},
+
+	/** Connect an IMAP/SMTP mailbox (verifies creds server-side). */
+	async connectImap(input: ImapConnectInput): Promise<{ mailboxId: string }> {
+		const res = await apiClient.post("/api/mailbox/imap", input);
+		return res.data as { mailboxId: string };
 	},
 
 	async list(): Promise<MailboxSummary[]> {

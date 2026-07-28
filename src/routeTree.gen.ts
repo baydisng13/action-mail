@@ -30,6 +30,7 @@ import { Route as ApiInboxRouteImport } from './routes/api/inbox'
 import { Route as ApiTodosScanRouteImport } from './routes/api/todos.scan'
 import { Route as ApiTodosIdRouteImport } from './routes/api/todos.$id'
 import { Route as ApiThreadIdRouteImport } from './routes/api/thread.$id'
+import { Route as ApiMailboxImapRouteImport } from './routes/api/mailbox/imap'
 import { Route as ApiMailboxGoogleRouteImport } from './routes/api/mailbox/google'
 import { Route as ApiMailboxIdRouteImport } from './routes/api/mailbox/$id'
 import { Route as ApiInternalSyncStepRouteImport } from './routes/api/internal/sync-step'
@@ -155,6 +156,11 @@ const ApiTodosIdRoute = ApiTodosIdRouteImport.update({
 const ApiThreadIdRoute = ApiThreadIdRouteImport.update({
   id: '/api/thread/$id',
   path: '/api/thread/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMailboxImapRoute = ApiMailboxImapRouteImport.update({
+  id: '/api/mailbox/imap',
+  path: '/api/mailbox/imap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMailboxGoogleRoute = ApiMailboxGoogleRouteImport.update({
@@ -297,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/api/internal/sync-step': typeof ApiInternalSyncStepRoute
   '/api/mailbox/$id': typeof ApiMailboxIdRouteWithChildren
   '/api/mailbox/google': typeof ApiMailboxGoogleRouteWithChildren
+  '/api/mailbox/imap': typeof ApiMailboxImapRoute
   '/api/thread/$id': typeof ApiThreadIdRouteWithChildren
   '/api/todos/$id': typeof ApiTodosIdRoute
   '/api/todos/scan': typeof ApiTodosScanRoute
@@ -339,6 +346,7 @@ export interface FileRoutesByTo {
   '/api/internal/sync-step': typeof ApiInternalSyncStepRoute
   '/api/mailbox/$id': typeof ApiMailboxIdRouteWithChildren
   '/api/mailbox/google': typeof ApiMailboxGoogleRouteWithChildren
+  '/api/mailbox/imap': typeof ApiMailboxImapRoute
   '/api/thread/$id': typeof ApiThreadIdRouteWithChildren
   '/api/todos/$id': typeof ApiTodosIdRoute
   '/api/todos/scan': typeof ApiTodosScanRoute
@@ -384,6 +392,7 @@ export interface FileRoutesById {
   '/api/internal/sync-step': typeof ApiInternalSyncStepRoute
   '/api/mailbox/$id': typeof ApiMailboxIdRouteWithChildren
   '/api/mailbox/google': typeof ApiMailboxGoogleRouteWithChildren
+  '/api/mailbox/imap': typeof ApiMailboxImapRoute
   '/api/thread/$id': typeof ApiThreadIdRouteWithChildren
   '/api/todos/$id': typeof ApiTodosIdRoute
   '/api/todos/scan': typeof ApiTodosScanRoute
@@ -430,6 +439,7 @@ export interface FileRouteTypes {
     | '/api/internal/sync-step'
     | '/api/mailbox/$id'
     | '/api/mailbox/google'
+    | '/api/mailbox/imap'
     | '/api/thread/$id'
     | '/api/todos/$id'
     | '/api/todos/scan'
@@ -472,6 +482,7 @@ export interface FileRouteTypes {
     | '/api/internal/sync-step'
     | '/api/mailbox/$id'
     | '/api/mailbox/google'
+    | '/api/mailbox/imap'
     | '/api/thread/$id'
     | '/api/todos/$id'
     | '/api/todos/scan'
@@ -516,6 +527,7 @@ export interface FileRouteTypes {
     | '/api/internal/sync-step'
     | '/api/mailbox/$id'
     | '/api/mailbox/google'
+    | '/api/mailbox/imap'
     | '/api/thread/$id'
     | '/api/todos/$id'
     | '/api/todos/scan'
@@ -557,6 +569,7 @@ export interface RootRouteChildren {
   ApiInternalSyncStepRoute: typeof ApiInternalSyncStepRoute
   ApiMailboxIdRoute: typeof ApiMailboxIdRouteWithChildren
   ApiMailboxGoogleRoute: typeof ApiMailboxGoogleRouteWithChildren
+  ApiMailboxImapRoute: typeof ApiMailboxImapRoute
   ApiThreadIdRoute: typeof ApiThreadIdRouteWithChildren
 }
 
@@ -707,6 +720,13 @@ declare module '@tanstack/react-router' {
       path: '/api/thread/$id'
       fullPath: '/api/thread/$id'
       preLoaderRoute: typeof ApiThreadIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mailbox/imap': {
+      id: '/api/mailbox/imap'
+      path: '/api/mailbox/imap'
+      fullPath: '/api/mailbox/imap'
+      preLoaderRoute: typeof ApiMailboxImapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/mailbox/google': {
@@ -991,6 +1011,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiInternalSyncStepRoute: ApiInternalSyncStepRoute,
   ApiMailboxIdRoute: ApiMailboxIdRouteWithChildren,
   ApiMailboxGoogleRoute: ApiMailboxGoogleRouteWithChildren,
+  ApiMailboxImapRoute: ApiMailboxImapRoute,
   ApiThreadIdRoute: ApiThreadIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport

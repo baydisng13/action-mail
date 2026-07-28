@@ -42,7 +42,7 @@ export const tokenType = pgEnum("token_type", [
 	"email_verification",
 	"password_reset",
 ]);
-export const mailboxProvider = pgEnum("mailbox_provider", ["gmail"]);
+export const mailboxProvider = pgEnum("mailbox_provider", ["gmail", "imap"]);
 export const syncStatus = pgEnum("sync_status", [
 	"pending",
 	"syncing",
@@ -239,18 +239,29 @@ export const mailboxes = pgTable(
 			.references(() => teams.id, { onDelete: "cascade" }),
 		provider: mailboxProvider("provider").notNull().default("gmail"),
 		emailAddress: text("email_address").notNull(),
-		// OAuth tokens, encrypted at rest (AES-256-GCM).
-		accessTokenEnc: text("access_token_enc").notNull(),
+		// OAuth tokens (Gmail), encrypted at rest (AES-256-GCM). Null for IMAP.
+		accessTokenEnc: text("access_token_enc"),
 		refreshTokenEnc: text("refresh_token_enc"),
 		tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
 		scope: text("scope"),
+		// IMAP/SMTP config (provider = 'imap'). Password encrypted at rest.
+		imapHost: text("imap_host"),
+		imapPort: integer("imap_port"),
+		smtpHost: text("smtp_host"),
+		smtpPort: integer("smtp_port"),
+		useTls: boolean("use_tls").notNull().default(true),
+		username: text("username"),
+		passwordEnc: text("password_enc"),
 		// Sync engine state.
 		status: syncStatus("status").notNull().default("pending"),
 		syncedCount: integer("synced_count").notNull().default(0),
 		totalEstimate: integer("total_estimate"),
-		// Resumable backfill cursor + incremental (History API) cursor.
+		// Resumable backfill cursor. Gmail: page token + History id.
 		backfillPageToken: text("backfill_page_token"),
 		historyId: text("history_id"),
+		// IMAP incremental cursor: UIDVALIDITY + highest UID synced.
+		imapUidValidity: text("imap_uid_validity"),
+		imapLastUid: integer("imap_last_uid"),
 		lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
 		error: text("error"),
 		createdAt,

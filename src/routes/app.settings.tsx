@@ -10,6 +10,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthError } from "@/features/auth/components/auth-error";
 import { useChangePassword, useMe } from "@/features/auth/hooks";
+import { ImapConnectDialog } from "@/features/mailbox/components/imap-connect-dialog";
 import { useDisconnect, useMailboxes, useStartConnect } from "@/features/mailbox/hooks";
 import { cn } from "@/lib/utils";
 
@@ -282,14 +283,17 @@ function EmailTab({ plan }: { plan: "free" | "pro" | "team" }) {
 					</Button>
 				</div>
 			) : (
-				<Button
-					variant="outline"
-					disabled={connect.isPending}
-					onClick={() => connect.mutate()}
-				>
-					{connect.isPending ? <Spinner /> : <Plus className="h-4 w-4" />}
-					Connect a mailbox
-				</Button>
+				<div className="flex flex-wrap gap-2">
+					<Button
+						variant="outline"
+						disabled={connect.isPending}
+						onClick={() => connect.mutate()}
+					>
+						{connect.isPending ? <Spinner /> : <Plus className="h-4 w-4" />}
+						Connect Gmail
+					</Button>
+					<ImapConnectDialog />
+				</div>
 			)}
 		</div>
 	);

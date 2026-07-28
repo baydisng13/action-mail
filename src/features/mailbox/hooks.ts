@@ -44,6 +44,15 @@ export function useStartSync() {
 	return useMutation({ mutationFn: (id: string) => mailboxApi.startSync(id) });
 }
 
+export function useConnectImap() {
+	const qc = useQueryClient();
+	return useMutation({
+		mutationFn: (input: Parameters<typeof mailboxApi.connectImap>[0]) =>
+			mailboxApi.connectImap(input),
+		onSuccess: () => qc.invalidateQueries({ queryKey: mailboxKeys.list }),
+	});
+}
+
 export function useRefreshMailbox() {
 	const qc = useQueryClient();
 	return useMutation({

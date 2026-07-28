@@ -36,6 +36,13 @@
       "when": 1785228160261,
       "tag": "0004_curly_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785233533246,
+      "tag": "0005_condemned_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }
