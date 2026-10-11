@@ -1,121 +1,79 @@
-# Cookflow
+# Postscript
 
-Cookflow web app — built with TanStack Start, React 19, and shadcn/ui.
+An AI email client that sits on top of the mail you already have (Gmail or any
+IMAP/SMTP provider). It reads, threads and organizes your mail, pulls out codes,
+links and to-dos, and hands you the action instead of the raw message.
 
-## Stack
+Sold as a SaaS: personal workspaces, team workspaces with members and roles,
+Free / Pro / Team plans billed through Polar, and a platform admin console.
 
-- **React 19** + **TanStack Start** (SSR via Nitro)
-- **TanStack Router** — file-based routes in `src/routes/`
-- **TanStack Query** — server state and mutations
-- **Tailwind CSS 4** + **shadcn/ui** — UI in `src/components/ui/`
-- **Biome** — lint and format
-- **T3 Env** — typed environment variables (`src/env.ts`)
+## Monorepo
 
-## Getting started
+| Path | What |
+|------|------|
+| `apps/web` | TanStack Start (React 19, Vite 7, Tailwind 4, shadcn/ui). UI only, talks to the api. |
+| `apps/api` | NestJS 11 + Drizzle + Postgres 17. All server logic under `/api`. |
+| `apps/api/src/worker.ts` | The worker: same image as the api, started with `node dist/worker.js`. BullMQ on Redis: mailbox sync, provider actions, delayed sends (undo), draft sync, AI triage, emails, Polar webhooks, scheduled jobs. |
+| `packages/types` | Shared API contract (zod schemas + response types) and the plan/limit table (`src/plans.ts`). |
+| `e2e` | Playwright specs run against the docker-compose stack with a GreenMail test server. |
 
-### Prerequisites
+pnpm 10 + Turborepo, Node 22.
 
-- Node.js **22.12+**
-- [pnpm](https://pnpm.io/)
+## Privacy model
 
-### Install and run
+Mail content never lands in Postgres or on disk. The provider stays the source
+of truth.
 
-```bash
-pnpm install
-pnpm dev
-```
+- Bodies and attachments are fetched live when a message is opened. A short
+  cache (max 1 hour) lives in Redis, encrypted per workspace (AES-256-GCM,
+  key derived from `MAILBOX_ENCRYPTION_KEY` with HKDF). Disconnect and logout
+  drop it.
+- Stored per message: provider ids, folder/label ids, flags, date, size, an
+  attachment flag, and one encrypted envelope (sender, recipients, subject,
+  snippet). Message-IDs are kept only as keyed hashes for threading.
+- Search uses the provider (Gmail `q=`, IMAP `SEARCH`). No local content index.
+- AI gets content only on demand; only its output is stored, encrypted. Prompts
+  are never logged. Logs strip email addresses.
+- OAuth tokens and IMAP passwords are encrypted at rest and never returned.
+- `apps/api/test/int.mail.test.ts` syncs a real test mailbox and scans every
+  table and every Redis value to prove no subject, body or attachment is stored
+  in plain text.
 
-Open [http://localhost:3000](http://localhost:3000).
+## Plans
 
-### Environment variables
+Edit `packages/types/src/plans.ts` to change prices and limits (the api enforces
+them, the web shows them). Real charges come from the Polar products you set in
+`POLAR_PRODUCT_*`.
 
-Copy the example file and adjust as needed:
+## Run it
 
-```bash
-cp .env.example .env
-```
-
-| Variable | Description |
-|----------|-------------|
-| `VITE_APP_TITLE` | App name shown in the header (default: Cookflow) |
-| `SERVER_URL` | Optional server URL for SSR/API (server-only) |
-
-### Production build
-
-```bash
-pnpm build
-pnpm start
-```
-
-## Project layout
-
-```
-src/
-├── routes/           # File-based routes (add new files here)
-├── components/
-│   ├── ui/           # shadcn components
-│   └── app-shell.tsx # Shared layout (header + nav)
-├── features/         # Feature modules (e.g. todo-list)
-├── lib/              # Utilities (cn, query client)
-├── integrations/     # TanStack Query provider
-├── env.ts            # Typed env schema
-└── styles.css        # Global styles + design tokens
-```
-
-## Todo list example
-
-Visit `/example` for a todo list wired from `src/features/todo-list/`:
-
-```
-src/features/todo-list/
-├── api.ts
-├── types.ts
-├── hooks/use-todo-list.ts
-├── components/todo-list.tsx
-└── index.ts
-```
-
-Routes should stay thin and import from `features/`.
-
-## Adding routes
-
-Create a file under `src/routes/`, for example `src/routes/about.tsx`:
-
-```tsx
-import { createFileRoute } from "@tanstack/react-router";
-
-export const Route = createFileRoute("/about")({
-  component: () => <p>About Cookflow</p>,
-});
-```
-
-The dev server regenerates `src/routeTree.gen.ts` automatically.
-
-## Adding UI components
+Node is only needed inside containers.
 
 ```bash
-pnpm dlx shadcn@latest add button
+cp .env.example .env            # fill the required secrets
+docker compose up -d --build    # web, api, worker, postgres, redis (no host ports)
 ```
 
-See [shadcn/ui](https://ui.shadcn.com/) for available components.
+Tests:
 
-## Scripts
+```bash
+docker compose -f docker-compose.test.yml up -d
+docker compose -f docker-compose.test.yml run --rm tests      # unit + integration
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml --env-file e2e/e2e.env up -d --build
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml --env-file e2e/e2e.env run --rm playwright
+```
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start dev server (port 3000) |
-| `pnpm build` | Production build |
-| `pnpm start` | Run production server |
-| `pnpm test` | Run Vitest |
-| `pnpm check` | Biome lint + format check |
-| `pnpm format` | Format with Biome |
+`scripts/verify.sh` runs typecheck, build and the test suites in Docker.
 
-## Code standards
+## Deploy
 
-Read **[CODE_STANDARDS.md](./CODE_STANDARDS.md)** for naming, file structure, TypeScript, and PR conventions.
+Coolify, build pack `dockercompose`, file `docker-compose.coolify.yml`. Required
+env: `POSTGRES_PASSWORD`, `APP_URL`, `API_URL`, `JWT_ACCESS_SECRET`,
+`JWT_REFRESH_SECRET`, `MAILBOX_ENCRYPTION_KEY`. Optional (features show "not
+configured" until set): Google OAuth, `AI_API_KEY`, `RESEND_API_KEY`, Polar.
+Migrations run when the api starts.
 
-## Learn more
-
-- [TanStack Router](https://tanstack.com/router)
-- [TanStack Query](https://tanstack.com/query)
-- [TanStack Start](https://tanstack.com/start)
+Polar webhook URL: `https://<api host>/api/billing/webhook` (events:
+subscription.*, order.paid).
+Google OAuth redirect URIs: `https://<api host>/api/auth/google/callback` and
+`https://<api host>/api/mailbox/google/callback`.

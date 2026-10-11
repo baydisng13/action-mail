@@ -1,0 +1,34 @@
+# Backing services for the api test suite (unit + integration).
+#   docker compose -f docker-compose.test.yml up -d
+#   docker compose -f docker-compose.test.yml run --rm tests
+name: postscript-test
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment: { POSTGRES_USER: postscript, POSTGRES_PASSWORD: postscript, POSTGRES_DB: postscript_test }
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U postscript"], interval: 2s, retries: 30 }
+  redis:
+    image: redis:7-alpine
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 2s, retries: 30 }
+  greenmail:
+    image: greenmail/standalone:2.1.2
+    environment:
+      GREENMAIL_OPTS: -Dgreenmail.setup.test.smtp -Dgreenmail.setup.test.imap -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled -Dgreenmail.users.login=email -Dgreenmail.verbose=false
+  tests:
+    image: node:22-alpine
+    profiles: ["run"]
+    working_dir: /repo
+    volumes: ["./:/repo", "pnpm-store-postscript:/pnpm/store"]
+    environment:
+      DATABASE_URL: postgres://postscript:postscript@postgres:5432/postscript_test
+      REDIS_URL: redis://redis:6379
+      GREENMAIL_HOST: greenmail
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      greenmail: { condition: service_started }
+    command: ["sh", "-c", "corepack enable >/dev/null 2>&1 && pnpm --filter @postscript/types build >/dev/null && pnpm --filter @postscript/types test && pnpm --filter @postscript/api test && pnpm --filter @postscript/web test"]
+volumes:
+  pnpm-store-postscript:
+    external: true

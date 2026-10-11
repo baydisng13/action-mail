@@ -1,0 +1,123 @@
+# Production stack for Coolify (Traefik in front, routes by SERVICE_FQDN_*).
+#  - services only `expose`, never publish host ports
+#  - secrets have no defaults: a missing one fails the deploy loudly
+#  - api and worker share ONE image and differ only in `command:`
+#  - optional keys (Google, AI, Resend, Polar) may be empty: those features
+#    then show "not configured" instead of crashing
+name: postscript
+
+x-api-env: &api-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://${POSTGRES_USER:-postscript}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-postscript}
+  REDIS_URL: redis://redis:6379
+  APP_URL: ${APP_URL:?APP_URL is required}
+  API_URL: ${API_URL:?API_URL is required}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+  MAILBOX_ENCRYPTION_KEY: ${MAILBOX_ENCRYPTION_KEY:?MAILBOX_ENCRYPTION_KEY is required}
+  PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_MODEL: ${AI_MODEL:-deepseek-chat}
+  AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com/v1}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  EMAIL_FROM: ${EMAIL_FROM:-Postscript <onboarding@resend.dev>}
+  POLAR_ACCESS_TOKEN: ${POLAR_ACCESS_TOKEN:-}
+  POLAR_WEBHOOK_SECRET: ${POLAR_WEBHOOK_SECRET:-}
+  POLAR_SERVER: ${POLAR_SERVER:-sandbox}
+  POLAR_PRODUCT_PRO_MONTHLY: ${POLAR_PRODUCT_PRO_MONTHLY:-}
+  POLAR_PRODUCT_PRO_YEARLY: ${POLAR_PRODUCT_PRO_YEARLY:-}
+  POLAR_PRODUCT_TEAM_MONTHLY: ${POLAR_PRODUCT_TEAM_MONTHLY:-}
+  POLAR_PRODUCT_TEAM_YEARLY: ${POLAR_PRODUCT_TEAM_YEARLY:-}
+  SYNC_INTERVAL_MINUTES: ${SYNC_INTERVAL_MINUTES:-10}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postscript}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-postscript}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postscript} -d ${POSTGRES_DB:-postscript}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+      start_interval: 1s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+      start_interval: 1s
+
+  api:
+    image: ${COOLIFY_RESOURCE_UUID:-postscript}_api:current
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    stop_grace_period: 10s
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      <<: *api-env
+      SERVICE_FQDN_API_3000: ${API_FQDN:-}
+      PORT: 3000
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+      start_interval: 2s
+
+  worker:
+    image: ${COOLIFY_RESOURCE_UUID:-postscript}_api:current
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    stop_grace_period: 20s
+    command: ["node", "dist/worker.js"]
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      <<: *api-env
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${API_URL:?API_URL is required}
+    restart: unless-stopped
+    stop_grace_period: 5s
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      SERVICE_FQDN_WEB_3000: ${WEB_FQDN:-}
+      PORT: 3000
+    expose:
+      - "3000"
+
+volumes:
+  pgdata:
+  redisdata:
