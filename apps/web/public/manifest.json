@@ -1,0 +1,8 @@
+{
+  "short_name": "Postscript",
+  "name": "Postscript",
+  "start_url": "/app",
+  "display": "standalone",
+  "theme_color": "#151a1c",
+  "background_color": "#151a1c"
+}

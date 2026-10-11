@@ -1,10 +1,15 @@
-node_modules
-.output
-dist
+# Build context hygiene — keeps host artifacts from leaking into image builds.
+# A stale tsbuildinfo or dist/ copied in here silently breaks the API build.
+**/node_modules
+**/dist
+**/.output
+**/.nitro
+**/.tanstack
+**/.turbo
+**/*.tsbuildinfo
+**/coverage
 .git
-.vscode
-.storybook
-*.md
 .gitignore
-.cursorrules
-.cta.json
+**/.env
+**/.env.local
+**/*.log
