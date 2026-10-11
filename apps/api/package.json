@@ -1,0 +1,53 @@
+{
+  "name": "@postscript/api",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
+    "dev": "nest start --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/platform-express": "^11.1.6",
+    "@polar-sh/sdk": "^1.0.2",
+    "@postscript/types": "workspace:*",
+    "@tanstack/ai": "0.42.0",
+    "@tanstack/ai-openai": "0.17.1",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^5.58.0",
+    "cookie-parser": "^1.4.7",
+    "drizzle-orm": "^0.45.2",
+    "imapflow": "^1.6.1",
+    "ioredis": "^5.7.0",
+    "jose": "^6.2.4",
+    "mailparser": "^3.9.14",
+    "nodemailer": "^7.0.6",
+    "postgres": "^3.4.7",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "sanitize-html": "^2.17.0",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.10",
+    "@nestjs/schematics": "^11.0.7",
+    "@swc/core": "^1.13.5",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/express": "^5.0.3",
+    "@types/mailparser": "^3.4.6",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.18.0",
+    "@types/nodemailer": "^7.0.1",
+    "@types/sanitize-html": "^2.16.0",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.8.3",
+    "unplugin-swc": "^1.5.7",
+    "vitest": "^3.2.4"
+  }
+}
