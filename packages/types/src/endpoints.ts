@@ -35,6 +35,9 @@
  * Admin (PLATFORM_ADMIN_EMAILS)
  *   GET /admin/overview  GET /admin/orgs?q=  GET /admin/users?q=
  *   POST /admin/orgs/:id/grant {plan, seats}   POST /admin/orgs/:id/suspend {suspended, reason}
+ *   GET  /admin/settings -> PlatformSettingsResponse
+ *   PUT  /admin/settings {updates: Record<key,value>}  ("" clears the ui override)
+ *   POST /admin/settings/test/:group  (google|ai|email|payments) {testAddress?} -> SettingTestResult
  *
  * Mail
  *   GET  /mailboxes -> { mailboxes }      PATCH /mailboxes/:id   DELETE /mailboxes/:id

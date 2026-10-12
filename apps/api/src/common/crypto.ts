@@ -26,6 +26,38 @@ export function decryptSecret(payload: string): string {
 	return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString("utf8");
 }
 
+// ─── Platform settings encryption ───────────────────────────────────────────
+
+let platformKeyCache: Buffer | undefined;
+
+/** Distinct key from the mailbox/content ones above, derived by HKDF. */
+function platformSettingsKey(): Buffer {
+	if (!platformKeyCache) {
+		platformKeyCache = Buffer.from(hkdfSync("sha256", key(), "", "postscript-platform-settings-v1", 32));
+	}
+	return platformKeyCache;
+}
+
+export function encryptPlatformSetting(plain: string): string {
+	const iv = randomBytes(12);
+	const cipher = createCipheriv("aes-256-gcm", platformSettingsKey(), iv);
+	const ct = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
+	return Buffer.concat([iv, cipher.getAuthTag(), ct]).toString("base64");
+}
+
+export function decryptPlatformSetting(payload: string): string {
+	const buf = Buffer.from(payload, "base64");
+	const decipher = createDecipheriv("aes-256-gcm", platformSettingsKey(), buf.subarray(0, 12));
+	decipher.setAuthTag(buf.subarray(12, 28));
+	return Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString("utf8");
+}
+
+/** "sk-...a1b2" style mask: never return enough to reconstruct the secret. */
+export function maskSecret(value: string): string {
+	if (value.length <= 6) return "••••";
+	return `${value.slice(0, 3)}…${value.slice(-4)}`;
+}
+
 /** Opaque secret for the client + its SHA-256 hash for the DB. */
 export function generateSecret(bytes = 32): { secret: string; hash: string } {
 	const secret = randomBytes(bytes).toString("base64url");

@@ -7,6 +7,8 @@ import { SessionService } from "./auth/session.service";
 import { BillingService } from "./billing/billing.service";
 import { LimitsService } from "./billing/limits.service";
 import { CommonModule } from "./common/common.module";
+import { PlatformSettingsService } from "./admin/platform-settings.service";
+import { SettingsBootstrapService } from "./config/settings-bootstrap.service";
 import { DbModule } from "./db/db.module";
 import { EmailModule } from "./email/email.module";
 import { ActionsService } from "./mail/actions.service";
@@ -38,6 +40,8 @@ const services = [
 	SyncService,
 	OrgsService,
 	TodosService,
+	SettingsBootstrapService,
+	PlatformSettingsService,
 ];
 
 /** Everything shared by the api and the worker (same image, different entry). */

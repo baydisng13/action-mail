@@ -1,4 +1,5 @@
-import { env, gmailRedirectUri } from "../config/env";
+import { gmailRedirectUri } from "../config/env";
+import { setting } from "../config/settings.store";
 import { ApiError } from "../common/errors";
 
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -12,11 +13,12 @@ export const GMAIL_SCOPES = [
 ].join(" ");
 
 function oauth() {
-	const e = env();
-	if (!e.GOOGLE_CLIENT_ID || !e.GOOGLE_CLIENT_SECRET) {
+	const clientId = setting("GOOGLE_CLIENT_ID");
+	const clientSecret = setting("GOOGLE_CLIENT_SECRET");
+	if (!clientId || !clientSecret) {
 		throw new ApiError(503, "Gmail is not configured yet", "gmail_unconfigured");
 	}
-	return { clientId: e.GOOGLE_CLIENT_ID, clientSecret: e.GOOGLE_CLIENT_SECRET, redirectUri: gmailRedirectUri() };
+	return { clientId, clientSecret, redirectUri: gmailRedirectUri() };
 }
 
 export function buildConnectUrl(state: string): string {

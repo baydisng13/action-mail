@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { env, features } from "../config/env";
+import { setting } from "../config/settings.store";
 import { log } from "../common/logger";
 import type { EmailJob } from "../queue/queues";
 import { QueueService } from "../queue/queue.service";
@@ -60,8 +61,8 @@ export async function deliverEmail(msg: EmailJob): Promise<void> {
 	}
 	const res = await fetch("https://api.resend.com/emails", {
 		method: "POST",
-		headers: { authorization: `Bearer ${e.RESEND_API_KEY}`, "content-type": "application/json" },
-		body: JSON.stringify({ from: e.EMAIL_FROM, to: msg.to, subject: msg.subject, html: msg.html, text: msg.text }),
+		headers: { authorization: `Bearer ${setting("RESEND_API_KEY")}`, "content-type": "application/json" },
+		body: JSON.stringify({ from: setting("EMAIL_FROM") ?? e.EMAIL_FROM, to: msg.to, subject: msg.subject, html: msg.html, text: msg.text }),
 	});
 	if (!res.ok) throw new Error(`Resend failed: ${res.status} ${await res.text()}`);
 	log.info("email.sent", { to: msg.to, subject: msg.subject });

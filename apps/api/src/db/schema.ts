@@ -28,6 +28,8 @@ export const mailboxProvider = pgEnum("mailbox_provider", ["gmail", "imap"]);
 export const syncStatus = pgEnum("sync_status", ["pending", "syncing", "ready", "error"]);
 export const todoStatus = pgEnum("todo_status", ["open", "done"]);
 export const todoSource = pgEnum("todo_source", ["ai", "manual"]);
+export const paymentMethod = pgEnum("payment_method", ["polar", "chapa", "telebirr", "manual"]);
+export const paymentStatus = pgEnum("payment_status", ["pending", "paid", "failed", "rejected"]);
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 export const users = pgTable(
@@ -481,6 +483,34 @@ export const todos = pgTable(
 		index("todo_org_user_status_idx").on(t.organizationId, t.userId, t.status),
 		uniqueIndex("todo_org_user_message_idx").on(t.organizationId, t.userId, t.messageId),
 	],
+);
+
+// ─── Platform settings ───────────────────────────────────────────────────────
+/**
+ * Owner-editable overrides for third-party config that otherwise comes from
+ * env vars. Secret values are AES-256-GCM encrypted (see settings.store.ts);
+ * non-secret values are stored as plain text. An absent row means "fall back
+ * to the env var".
+ */
+export const platformSettings = pgTable("platform_settings", {
+	key: text("key").primaryKey(),
+	value: text("value"),
+	isSecret: boolean("is_secret").notNull().default(false),
+	updatedBy: text("updated_by"),
+	updatedAt,
+});
+
+/** Who changed which setting, and when. Never the value. */
+export const settingsAuditLog = pgTable(
+	"settings_audit_log",
+	{
+		id: id(),
+		key: text("key").notNull(),
+		action: text("action").notNull(), // "set" | "clear"
+		actorEmail: text("actor_email").notNull(),
+		createdAt,
+	},
+	(t) => [index("settings_audit_key_idx").on(t.key)],
 );
 
 export type User = typeof users.$inferSelect;

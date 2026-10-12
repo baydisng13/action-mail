@@ -1,11 +1,21 @@
 import { z } from "zod";
-import { env, features } from "../config/env";
+import { features } from "../config/env";
+import { setting } from "../config/settings.store";
 import { ApiError } from "../common/errors";
+
+/** Effective AI config: ui override first, then env, then the DeepSeek default. */
+export function aiConfig() {
+	return {
+		apiKey: setting("AI_API_KEY"),
+		model: setting("AI_MODEL") ?? "deepseek-chat",
+		baseUrl: setting("AI_BASE_URL") ?? "https://api.deepseek.com/v1",
+	};
+}
 
 /** Host of the configured AI provider, shown on the privacy page. */
 export function aiProviderName(): string | null {
 	if (!features.ai()) return null;
-	const host = new URL(env().AI_BASE_URL).hostname;
+	const host = new URL(aiConfig().baseUrl).hostname;
 	if (host.includes("deepseek")) return "DeepSeek";
 	if (host.includes("openai.com")) return "OpenAI";
 	if (host.includes("openrouter")) return "OpenRouter";
@@ -29,18 +39,18 @@ function parseJsonObject(text: string): unknown {
  */
 export async function generateStructured<T extends z.ZodTypeAny>(system: string, user: string, schema: T): Promise<z.infer<T>> {
 	if (!features.ai()) throw new ApiError(503, "AI is not configured yet", "ai_unconfigured");
-	const e = env();
+	const e = aiConfig();
 	// ESM-only packages: load at runtime from this CommonJS build.
 	const { chat } = await import("@tanstack/ai");
 	const { createOpenaiChatCompletions } = await import("@tanstack/ai-openai");
 	const adapter = createOpenaiChatCompletions(
-		e.AI_MODEL as Parameters<typeof createOpenaiChatCompletions>[0],
-		e.AI_API_KEY as string,
-		{ baseURL: e.AI_BASE_URL },
+		e.model as Parameters<typeof createOpenaiChatCompletions>[0],
+		e.apiKey as string,
+		{ baseURL: e.baseUrl },
 	);
 	const sys = `${system}\n\nRespond with ONLY a single JSON object that satisfies this JSON Schema. No prose, no markdown fences.\nJSON Schema:\n${JSON.stringify(z.toJSONSchema(schema))}`;
 	// Ask OpenAI not to retain the exchange; other providers ignore unknown options.
-	const noRetain = new URL(e.AI_BASE_URL).hostname.endsWith("openai.com") ? { modelOptions: { store: false } } : {};
+	const noRetain = new URL(e.baseUrl).hostname.endsWith("openai.com") ? { modelOptions: { store: false } } : {};
 	const text = (await chat({
 		adapter,
 		systemPrompts: [sys],

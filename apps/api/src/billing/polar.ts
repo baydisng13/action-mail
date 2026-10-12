@@ -1,27 +1,27 @@
 import { createPolar, webhooks } from "@polar-sh/sdk/2026-10";
 import type { BillingInterval, PlanId } from "@postscript/types";
 import { env, features } from "../config/env";
+import { setting } from "../config/settings.store";
 import { ApiError } from "../common/errors";
 
 export type PolarClient = ReturnType<typeof createPolar>;
 
-let client: PolarClient | null = null;
-
+/** Rebuilt from the current settings on every call, so a saved change applies at once. */
 export function polar(): PolarClient {
 	if (!features.billing()) throw new ApiError(503, "Billing is not configured yet", "billing_unconfigured");
-	if (!client) {
-		client = createPolar({ accessToken: env().POLAR_ACCESS_TOKEN as string, environment: env().POLAR_SERVER, timeout: 30 });
-	}
-	return client;
+	return createPolar({
+		accessToken: setting("POLAR_ACCESS_TOKEN") as string,
+		environment: (setting("POLAR_SERVER") ?? env().POLAR_SERVER) as "sandbox" | "production",
+		timeout: 30,
+	});
 }
 
 export function productFor(plan: Exclude<PlanId, "free">, interval: BillingInterval): string | undefined {
-	const e = env();
 	const map: Record<string, string | undefined> = {
-		"pro:month": e.POLAR_PRODUCT_PRO_MONTHLY,
-		"pro:year": e.POLAR_PRODUCT_PRO_YEARLY,
-		"team:month": e.POLAR_PRODUCT_TEAM_MONTHLY,
-		"team:year": e.POLAR_PRODUCT_TEAM_YEARLY,
+		"pro:month": setting("POLAR_PRODUCT_PRO_MONTHLY"),
+		"pro:year": setting("POLAR_PRODUCT_PRO_YEARLY"),
+		"team:month": setting("POLAR_PRODUCT_TEAM_MONTHLY"),
+		"team:year": setting("POLAR_PRODUCT_TEAM_YEARLY"),
 	};
 	return map[`${plan}:${interval}`];
 }

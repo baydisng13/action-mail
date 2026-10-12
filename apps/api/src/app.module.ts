@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { AccountController } from "./account/account.controller";
 import { AdminController } from "./admin/admin.controller";
+import { PlatformSettingsController } from "./admin/platform-settings.controller";
 import { AuthController } from "./auth/auth.controller";
 import { BillingController } from "./billing/billing.controller";
 import { AuthGuard } from "./common/auth";
@@ -22,6 +23,7 @@ import { TodosController } from "./todos/todos.controller";
 		OrgsController,
 		BillingController,
 		AdminController,
+		PlatformSettingsController,
 		MailController,
 		TodosController,
 	],

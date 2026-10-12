@@ -26,6 +26,7 @@ import { Route as AuthContinueRouteImport } from './routes/auth.continue'
 import { Route as AppTodosRouteImport } from './routes/app.todos'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
+import { Route as AppAdminSettingsRouteImport } from './routes/app.admin.settings'
 
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
@@ -112,6 +113,11 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminSettingsRoute = AppAdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,13 +130,14 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
-  '/app/admin': typeof AppAdminRoute
+  '/app/admin': typeof AppAdminRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/app/todos': typeof AppTodosRoute
   '/auth/continue': typeof AuthContinueRoute
   '/invite/$token': typeof InviteTokenRoute
   '/app/': typeof AppIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
+  '/app/admin/settings': typeof AppAdminSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -141,13 +148,14 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
-  '/app/admin': typeof AppAdminRoute
+  '/app/admin': typeof AppAdminRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/app/todos': typeof AppTodosRoute
   '/auth/continue': typeof AuthContinueRoute
   '/invite/$token': typeof InviteTokenRoute
   '/app': typeof AppIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
+  '/app/admin/settings': typeof AppAdminSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,13 +169,14 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/verify-email': typeof VerifyEmailRoute
-  '/app/admin': typeof AppAdminRoute
+  '/app/admin': typeof AppAdminRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/app/todos': typeof AppTodosRoute
   '/auth/continue': typeof AuthContinueRoute
   '/invite/$token': typeof InviteTokenRoute
   '/app/': typeof AppIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
+  '/app/admin/settings': typeof AppAdminSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/app/'
     | '/onboarding/'
+    | '/app/admin/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/app'
     | '/onboarding'
+    | '/app/admin/settings'
   id:
     | '__root__'
     | '/'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/app/'
     | '/onboarding/'
+    | '/app/admin/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -363,18 +375,37 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/admin/settings': {
+      id: '/app/admin/settings'
+      path: '/settings'
+      fullPath: '/app/admin/settings'
+      preLoaderRoute: typeof AppAdminSettingsRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
   }
 }
 
+interface AppAdminRouteChildren {
+  AppAdminSettingsRoute: typeof AppAdminSettingsRoute
+}
+
+const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminSettingsRoute: AppAdminSettingsRoute,
+}
+
+const AppAdminRouteWithChildren = AppAdminRoute._addFileChildren(
+  AppAdminRouteChildren,
+)
+
 interface AppRouteChildren {
-  AppAdminRoute: typeof AppAdminRoute
+  AppAdminRoute: typeof AppAdminRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
   AppTodosRoute: typeof AppTodosRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAdminRoute: AppAdminRoute,
+  AppAdminRoute: AppAdminRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,
   AppTodosRoute: AppTodosRoute,
   AppIndexRoute: AppIndexRoute,

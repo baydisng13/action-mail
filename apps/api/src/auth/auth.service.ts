@@ -3,6 +3,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { LoginInput, RegisterInput } from "@postscript/types";
 import { and, eq } from "drizzle-orm";
 import { env, features, googleRedirectUri } from "../config/env";
+import { setting } from "../config/settings.store";
 import { generateSecret, hashPassword, hashSecret, verifyPassword } from "../common/crypto";
 import { ApiError } from "../common/errors";
 import { log } from "../common/logger";
@@ -162,10 +163,9 @@ export class AuthService {
 
 	// ─── Google sign-in ─────────────────────────────────────────────────────
 	googleAuthUrl(state: string): string {
-		const e = env();
 		if (!features.google()) throw new ApiError(503, "Google sign-in is not configured yet", "google_unconfigured");
 		const params = new URLSearchParams({
-			client_id: e.GOOGLE_CLIENT_ID as string,
+			client_id: setting("GOOGLE_CLIENT_ID") as string,
 			redirect_uri: googleRedirectUri(),
 			response_type: "code",
 			scope: "openid email profile",
@@ -176,14 +176,13 @@ export class AuthService {
 	}
 
 	async googleCallback(code: string, userAgent?: string | null): Promise<IssuedSession> {
-		const e = env();
 		const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
 			method: "POST",
 			headers: { "content-type": "application/x-www-form-urlencoded" },
 			body: new URLSearchParams({
 				code,
-				client_id: e.GOOGLE_CLIENT_ID as string,
-				client_secret: e.GOOGLE_CLIENT_SECRET as string,
+				client_id: setting("GOOGLE_CLIENT_ID") as string,
+				client_secret: setting("GOOGLE_CLIENT_SECRET") as string,
 				redirect_uri: googleRedirectUri(),
 				grant_type: "authorization_code",
 			}),

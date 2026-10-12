@@ -4,7 +4,7 @@ import type { Request, Response } from "express";
 import { AllowSuspended, Auth, type AuthCtx, Public, Roles } from "../common/auth";
 import { log } from "../common/logger";
 import { ZBody } from "../common/zod.pipe";
-import { env } from "../config/env";
+import { setting } from "../config/settings.store";
 import { BillingService } from "./billing.service";
 import { PolarWebhookUnknownTypeError, PolarWebhookVerificationError, verifyPolarWebhook } from "./polar";
 
@@ -39,7 +39,7 @@ export class BillingController {
 	@Public()
 	@Post("webhook")
 	async webhook(@Req() req: Request & { rawBody?: Buffer }, @Res() res: Response) {
-		const secret = env().POLAR_WEBHOOK_SECRET;
+		const secret = setting("POLAR_WEBHOOK_SECRET");
 		if (!secret) return res.status(503).json({ error: { message: "Billing is not configured yet", code: "billing_unconfigured" } });
 		const headers = {
 			"webhook-id": String(req.headers["webhook-id"] ?? ""),

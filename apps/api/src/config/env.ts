@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { setting } from "./settings.store";
 
 const optional = z
 	.string()
@@ -75,11 +76,11 @@ export function resetEnvCache(): void {
 }
 
 export const features = {
-	google: () => Boolean(env().GOOGLE_CLIENT_ID && env().GOOGLE_CLIENT_SECRET),
-	gmail: () => Boolean(env().GOOGLE_CLIENT_ID && env().GOOGLE_CLIENT_SECRET),
-	ai: () => Boolean(env().AI_API_KEY),
-	email: () => Boolean(env().RESEND_API_KEY),
-	billing: () => Boolean(env().POLAR_ACCESS_TOKEN && env().POLAR_WEBHOOK_SECRET),
+	google: () => Boolean(setting("GOOGLE_CLIENT_ID") && setting("GOOGLE_CLIENT_SECRET")),
+	gmail: () => Boolean(setting("GOOGLE_CLIENT_ID") && setting("GOOGLE_CLIENT_SECRET")),
+	ai: () => Boolean(setting("AI_API_KEY")),
+	email: () => Boolean(setting("RESEND_API_KEY")),
+	billing: () => Boolean(setting("POLAR_ACCESS_TOKEN") && setting("POLAR_WEBHOOK_SECRET")),
 };
 
 export function googleRedirectUri(): string {
