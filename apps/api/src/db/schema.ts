@@ -505,6 +505,8 @@ export const payments = pgTable(
 		plan: planTier("plan").notNull(),
 		/** Prepaid period length in months (1, 3, 6 or 12). Irrelevant for Polar. */
 		periodMonths: integer("period_months").notNull().default(1),
+		/** Prepaid seats bought in this pack (Team only; 1 for Pro/Free). */
+		seats: integer("seats").notNull().default(1),
 		/** Smallest unit: cents for usd, birr*100 for etb (no real subunit). */
 		amountMinor: integer("amount_minor").notNull(),
 		currency: text("currency").notNull(),

@@ -50,7 +50,7 @@ export class PaymentsController {
 	@Post("chapa/init")
 	async chapaInit(@Auth() ctx: AuthCtx, @ZBody(birrCheckoutSchema) body: BirrCheckoutInput) {
 		const email = ctx.email;
-		return this.chapa.initialize(ctx.orgId, ctx.userId, email, body.plan, body.periodMonths);
+		return this.chapa.initialize(ctx.orgId, ctx.userId, email, body.plan, body.periodMonths, body.seats);
 	}
 
 	/** Chapa posts here on every event. Verified by HMAC over the raw body. */
@@ -83,7 +83,7 @@ export class PaymentsController {
 	@HttpCode(200)
 	@Post("telebirr/submit")
 	telebirrSubmit(@Auth() ctx: AuthCtx, @ZBody(telebirrSubmitSchema) body: TelebirrSubmitInput) {
-		return this.telebirr.submit(ctx.orgId, ctx.userId, body.plan, body.periodMonths, body.txnId);
+		return this.telebirr.submit(ctx.orgId, ctx.userId, body.plan, body.periodMonths, body.txnId, body.seats);
 	}
 
 	@UseGuards(RateLimitGuard)
@@ -96,7 +96,11 @@ export class PaymentsController {
 		@Body() rawBody: Record<string, string>,
 		@UploadedFile() file: { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined,
 	) {
-		const body = manualProofSchema.parse({ ...rawBody, periodMonths: Number(rawBody.periodMonths) }) as ManualProofInput;
-		return this.manual.submit(ctx.orgId, ctx.userId, body.plan, body.periodMonths, body.note, file);
+		const body = manualProofSchema.parse({
+			...rawBody,
+			periodMonths: Number(rawBody.periodMonths),
+			...(rawBody.seats != null ? { seats: Number(rawBody.seats) } : {}),
+		}) as ManualProofInput;
+		return this.manual.submit(ctx.orgId, ctx.userId, body.plan, body.periodMonths, body.note, file, body.seats);
 	}
 }

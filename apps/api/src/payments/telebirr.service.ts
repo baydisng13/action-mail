@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { PLANS, type PlanId, type TelebirrReceiptFields } from "@postscript/types";
+import { normalizeSeats, PLANS, type PlanId, type TelebirrReceiptFields } from "@postscript/types";
 import { eq } from "drizzle-orm";
 import { ApiError } from "../common/errors";
 import { log } from "../common/logger";
@@ -20,8 +20,9 @@ export class TelebirrService {
 		private readonly payments: PaymentsService,
 	) {}
 
-	priceEtb(plan: Exclude<PlanId, "free">, periodMonths: number): number {
-		return Math.round(PLANS[plan].priceMonthly * periodMonths * usdToEtb());
+	priceEtb(plan: Exclude<PlanId, "free">, periodMonths: number, seats = 1): number {
+		const billedSeats = PLANS[plan].perSeat ? Math.max(1, seats) : 1;
+		return Math.round(PLANS[plan].priceMonthly * periodMonths * billedSeats * usdToEtb());
 	}
 
 	/** Never log the relay URL or token — both can carry secrets in the query string. */
@@ -76,14 +77,16 @@ export class TelebirrService {
 	}
 
 	/** Full flow: claim the txn id (unique), fetch + parse + validate, activate or fail. */
-	async submit(orgId: string, userId: string, plan: Exclude<PlanId, "free">, periodMonths: number, txnId: string): Promise<{ ok: boolean; message: string }> {
-		const amountEtb = this.priceEtb(plan, periodMonths);
+	async submit(orgId: string, userId: string, plan: Exclude<PlanId, "free">, periodMonths: number, txnId: string, requestedSeats?: number): Promise<{ ok: boolean; message: string }> {
+		const seats = normalizeSeats(plan, requestedSeats ?? 1);
+		const amountEtb = this.priceEtb(plan, periodMonths, seats);
 		const row = await this.payments.createPending({
 			organizationId: orgId,
 			userId,
 			method: "telebirr",
 			plan,
 			periodMonths,
+			seats,
 			amountMinor: amountEtb * 100,
 			currency: "etb",
 		});

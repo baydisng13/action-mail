@@ -1,4 +1,4 @@
-import { PLANS, type PlanId, PREPAID_PERIODS, type PrepaidPeriodMonths } from "@postscript/types";
+import { normalizeSeats, PLANS, type PlanId, PREPAID_PERIODS, type PrepaidPeriodMonths, TEAM_MIN_SEATS } from "@postscript/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -15,10 +15,13 @@ type Method = "chapa" | "telebirr" | "manual";
 export function PayInBirrDialog({ plan, trigger }: { plan: Exclude<PlanId, "free">; trigger: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
 	const [periodMonths, setPeriodMonths] = useState<PrepaidPeriodMonths>(1);
+	const [seats, setSeats] = useState(TEAM_MIN_SEATS);
 	const [method, setMethod] = useState<Method | null>(null);
 	const options = useQuery({ queryKey: ["payment-options"], queryFn: paymentsApi.options, enabled: open });
 
-	const amountEtb = options.data ? Math.round(PLANS[plan].priceMonthly * periodMonths * options.data.usdToEtb) : null;
+	const isTeam = plan === "team";
+	const billedSeats = isTeam ? Math.max(TEAM_MIN_SEATS, seats) : 1;
+	const amountEtb = options.data ? Math.round(PLANS[plan].priceMonthly * periodMonths * billedSeats * options.data.usdToEtb) : null;
 
 	return (
 		<Dialog
@@ -55,8 +58,29 @@ export function PayInBirrDialog({ plan, trigger }: { plan: Exclude<PlanId, "free
 									</button>
 								))}
 							</div>
-							{amountEtb != null && <p className="mt-2 text-sm text-muted-foreground">Total: {amountEtb.toLocaleString("en-US")} Birr</p>}
+							{amountEtb != null && (
+								<p className="mt-2 text-sm text-muted-foreground" data-testid="birr-total">
+									Total: {amountEtb.toLocaleString("en-US")} Birr
+									{isTeam ? ` (${billedSeats} seats x ${periodMonths} month${periodMonths === 1 ? "" : "s"})` : ""}
+								</p>
+							)}
 						</div>
+
+						{isTeam && (
+							<div>
+								<p className="mb-1.5 text-xs text-muted-foreground">How many seats (members)</p>
+								<input
+									type="number"
+									min={TEAM_MIN_SEATS}
+									max={500}
+									data-testid="birr-seats"
+									value={seats}
+									onChange={(e) => setSeats(normalizeSeats("team", Number(e.target.value) || TEAM_MIN_SEATS))}
+									className="h-9 w-24 rounded-lg bg-white/[0.04] px-3 text-sm outline-none"
+								/>
+								<p className="mt-1 text-xs text-muted-foreground">Team needs at least {TEAM_MIN_SEATS} seats. This is a prepaid pack: you can invite up to this many members.</p>
+							</div>
+						)}
 
 						<div className="flex flex-col gap-2">
 							{options.data.methods.chapa && (
@@ -73,9 +97,9 @@ export function PayInBirrDialog({ plan, trigger }: { plan: Exclude<PlanId, "free
 							)}
 						</div>
 
-						{method === "chapa" && <ChapaPanel plan={plan} periodMonths={periodMonths} />}
-						{method === "telebirr" && <TelebirrPanel plan={plan} periodMonths={periodMonths} instructions={options.data.telebirr.instructions} merchantNumber={options.data.telebirr.merchantNumber} onDone={() => setOpen(false)} />}
-						{method === "manual" && <ManualPanel plan={plan} periodMonths={periodMonths} onDone={() => setOpen(false)} />}
+						{method === "chapa" && <ChapaPanel plan={plan} periodMonths={periodMonths} seats={billedSeats} />}
+						{method === "telebirr" && <TelebirrPanel plan={plan} periodMonths={periodMonths} seats={billedSeats} instructions={options.data.telebirr.instructions} merchantNumber={options.data.telebirr.merchantNumber} onDone={() => setOpen(false)} />}
+						{method === "manual" && <ManualPanel plan={plan} periodMonths={periodMonths} seats={billedSeats} onDone={() => setOpen(false)} />}
 					</div>
 				) : null}
 			</DialogContent>
@@ -96,9 +120,9 @@ function MethodButton({ testId, label, active, onClick }: { testId: string; labe
 	);
 }
 
-function ChapaPanel({ plan, periodMonths }: { plan: Exclude<PlanId, "free">; periodMonths: PrepaidPeriodMonths }) {
+function ChapaPanel({ plan, periodMonths, seats }: { plan: Exclude<PlanId, "free">; periodMonths: PrepaidPeriodMonths; seats: number }) {
 	const init = useMutation({
-		mutationFn: () => paymentsApi.chapaInit(plan, periodMonths),
+		mutationFn: () => paymentsApi.chapaInit(plan, periodMonths, seats),
 		onSuccess: (r) => {
 			window.location.href = r.checkoutUrl;
 		},
@@ -114,19 +138,21 @@ function ChapaPanel({ plan, periodMonths }: { plan: Exclude<PlanId, "free">; per
 function TelebirrPanel({
 	plan,
 	periodMonths,
+	seats,
 	instructions,
 	merchantNumber,
 	onDone,
 }: {
 	plan: Exclude<PlanId, "free">;
 	periodMonths: PrepaidPeriodMonths;
+	seats: number;
 	instructions: string;
 	merchantNumber: string | null;
 	onDone: () => void;
 }) {
 	const [txnId, setTxnId] = useState("");
 	const submit = useMutation({
-		mutationFn: () => paymentsApi.telebirrSubmit(plan, periodMonths, txnId),
+		mutationFn: () => paymentsApi.telebirrSubmit(plan, periodMonths, txnId, seats),
 		onSuccess: (r) => {
 			if (r.ok) {
 				toast.success(r.message);
@@ -149,13 +175,13 @@ function TelebirrPanel({
 	);
 }
 
-function ManualPanel({ plan, periodMonths, onDone }: { plan: Exclude<PlanId, "free">; periodMonths: PrepaidPeriodMonths; onDone: () => void }) {
+function ManualPanel({ plan, periodMonths, seats, onDone }: { plan: Exclude<PlanId, "free">; periodMonths: PrepaidPeriodMonths; seats: number; onDone: () => void }) {
 	const [file, setFile] = useState<File | null>(null);
 	const [note, setNote] = useState("");
 	const submit = useMutation({
 		mutationFn: () => {
 			if (!file) throw new Error("Attach a file first.");
-			return paymentsApi.manualSubmit(plan, periodMonths, file, note || undefined);
+			return paymentsApi.manualSubmit(plan, periodMonths, file, note || undefined, seats);
 		},
 		onSuccess: () => {
 			toast.success("Sent. We will check it and activate your plan soon.");

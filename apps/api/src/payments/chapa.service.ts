@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import { PLANS, type PlanId } from "@postscript/types";
+import { normalizeSeats, PLANS, type PlanId } from "@postscript/types";
 import { eq } from "drizzle-orm";
 import { ApiError } from "../common/errors";
 import { log } from "../common/logger";
@@ -26,18 +26,21 @@ export class ChapaService {
 		return key;
 	}
 
-	priceEtb(plan: Exclude<PlanId, "free">, periodMonths: number): number {
-		return Math.round(PLANS[plan].priceMonthly * periodMonths * usdToEtb());
+	priceEtb(plan: Exclude<PlanId, "free">, periodMonths: number, seats = 1): number {
+		const billedSeats = PLANS[plan].perSeat ? Math.max(1, seats) : 1;
+		return Math.round(PLANS[plan].priceMonthly * periodMonths * billedSeats * usdToEtb());
 	}
 
-	async initialize(orgId: string, userId: string, email: string, plan: Exclude<PlanId, "free">, periodMonths: number): Promise<{ checkoutUrl: string }> {
-		const amount = this.priceEtb(plan, periodMonths);
+	async initialize(orgId: string, userId: string, email: string, plan: Exclude<PlanId, "free">, periodMonths: number, requestedSeats?: number): Promise<{ checkoutUrl: string }> {
+		const seats = normalizeSeats(plan, requestedSeats ?? 1);
+		const amount = this.priceEtb(plan, periodMonths, seats);
 		const row = await this.payments.createPending({
 			organizationId: orgId,
 			userId,
 			method: "chapa",
 			plan,
 			periodMonths,
+			seats,
 			amountMinor: amount * 100,
 			currency: "etb",
 		});
@@ -53,7 +56,7 @@ export class ChapaService {
 				tx_ref: txRef,
 				callback_url: `${env().API_URL}/api/payments/chapa/webhook`,
 				return_url: `${env().APP_URL}/app/settings?tab=billing&chapa=${txRef}`,
-				customization: { title: "Postscript", description: `${PLANS[plan].name} plan, ${periodMonths} month(s)` },
+				customization: { title: "Postscript", description: `${PLANS[plan].name} plan, ${seats} seat(s), ${periodMonths} month(s)` },
 			}),
 			signal: AbortSignal.timeout(15000),
 		});

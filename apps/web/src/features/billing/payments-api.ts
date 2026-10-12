@@ -5,16 +5,17 @@ export const paymentsApi = {
 	async options(): Promise<PaymentOptionsResponse> {
 		return (await apiClient.get<PaymentOptionsResponse>("/api/payments/options")).data;
 	},
-	async chapaInit(plan: "pro" | "team", periodMonths: number): Promise<{ checkoutUrl: string }> {
-		return (await apiClient.post("/api/payments/chapa/init", { plan, periodMonths })).data;
+	async chapaInit(plan: "pro" | "team", periodMonths: number, seats?: number): Promise<{ checkoutUrl: string }> {
+		return (await apiClient.post("/api/payments/chapa/init", { plan, periodMonths, seats })).data;
 	},
-	async telebirrSubmit(plan: "pro" | "team", periodMonths: number, txnId: string): Promise<SettingTestResult> {
-		return (await apiClient.post("/api/payments/telebirr/submit", { plan, periodMonths, txnId })).data;
+	async telebirrSubmit(plan: "pro" | "team", periodMonths: number, txnId: string, seats?: number): Promise<SettingTestResult> {
+		return (await apiClient.post("/api/payments/telebirr/submit", { plan, periodMonths, txnId, seats })).data;
 	},
-	async manualSubmit(plan: "pro" | "team", periodMonths: number, file: File, note?: string): Promise<{ id: string }> {
+	async manualSubmit(plan: "pro" | "team", periodMonths: number, file: File, note?: string, seats?: number): Promise<{ id: string }> {
 		const form = new FormData();
 		form.append("plan", plan);
 		form.append("periodMonths", String(periodMonths));
+		if (seats != null) form.append("seats", String(seats));
 		if (note) form.append("note", note);
 		form.append("file", file);
 		return (await apiClient.post("/api/payments/manual/submit", form, { headers: { "content-type": "multipart/form-data" } })).data;

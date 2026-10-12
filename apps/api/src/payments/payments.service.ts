@@ -24,6 +24,7 @@ export class PaymentsService {
 		method: PaymentMethod;
 		plan: PlanId;
 		periodMonths: number;
+		seats?: number;
 		amountMinor: number;
 		currency: string;
 		note?: string;
@@ -37,6 +38,7 @@ export class PaymentsService {
 				method: args.method,
 				plan: args.plan,
 				periodMonths: args.periodMonths,
+				seats: Math.max(1, args.seats ?? 1),
 				amountMinor: args.amountMinor,
 				currency: args.currency,
 				note: args.note,
@@ -66,7 +68,7 @@ export class PaymentsService {
 			plan: p.plan,
 			interval: null,
 			status: "canceled" as const,
-			seats: 1,
+			seats: Math.max(1, p.seats),
 			amountCents: p.amountMinor,
 			currency: p.currency,
 			currentPeriodEnd: periodEnd,
@@ -105,6 +107,7 @@ export class PaymentsService {
 			status: r.payment.status,
 			plan: r.payment.plan,
 			periodMonths: r.payment.periodMonths,
+			seats: r.payment.seats,
 			amountMinor: r.payment.amountMinor,
 			currency: r.payment.currency,
 			externalRef: r.payment.externalRef,

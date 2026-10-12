@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
-import { PLANS, type PlanId } from "@postscript/types";
+import { normalizeSeats, PLANS, type PlanId } from "@postscript/types";
 import { newId } from "../db/schema";
 import { ApiError } from "../common/errors";
 import { env, usdToEtb } from "../config/env";
@@ -15,8 +15,9 @@ const ALLOWED_MIME = new Set(["image/png", "image/jpeg", "image/webp", "applicat
 export class ManualPaymentsService {
 	constructor(private readonly payments: PaymentsService) {}
 
-	priceEtb(plan: Exclude<PlanId, "free">, periodMonths: number): number {
-		return Math.round(PLANS[plan].priceMonthly * periodMonths * usdToEtb());
+	priceEtb(plan: Exclude<PlanId, "free">, periodMonths: number, seats = 1): number {
+		const billedSeats = PLANS[plan].perSeat ? Math.max(1, seats) : 1;
+		return Math.round(PLANS[plan].priceMonthly * periodMonths * billedSeats * usdToEtb());
 	}
 
 	async submit(
@@ -26,6 +27,7 @@ export class ManualPaymentsService {
 		periodMonths: number,
 		note: string | undefined,
 		file: { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined,
+		requestedSeats?: number,
 	): Promise<{ id: string }> {
 		if (!file) throw new ApiError(400, "Attach a screenshot or file as proof of payment.", "proof_required");
 		if (file.size > MAX_PROOF_BYTES) throw new ApiError(413, "That file is too big. The limit is 8 MB.", "too_large");
@@ -37,13 +39,15 @@ export class ManualPaymentsService {
 		const key = `${newId()}.${ext}`;
 		await writeFile(join(dir, key), file.buffer);
 
-		const amountEtb = this.priceEtb(plan, periodMonths);
+		const seats = normalizeSeats(plan, requestedSeats ?? 1);
+		const amountEtb = this.priceEtb(plan, periodMonths, seats);
 		const row = await this.payments.createPending({
 			organizationId: orgId,
 			userId,
 			method: "manual",
 			plan,
 			periodMonths,
+			seats,
 			amountMinor: amountEtb * 100,
 			currency: "etb",
 			note,

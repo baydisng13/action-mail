@@ -102,6 +102,15 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
 
 export const PLAN_IDS: PlanId[] = ["free", "pro", "team"];
 
+/** Team is a shared-billing plan: it never makes sense with fewer than this many seats. */
+export const TEAM_MIN_SEATS = 2;
+
+/** Clamp a requested seat count for a plan: Team has a floor of 2; others are always 1. */
+export function normalizeSeats(plan: PlanId, requested: number): number {
+	if (plan !== "team") return 1;
+	return Math.max(TEAM_MIN_SEATS, Math.floor(requested) || TEAM_MIN_SEATS);
+}
+
 /** Resolved, numeric limits for a workspace on a plan with N paid seats. */
 export interface EffectiveLimits {
 	plan: PlanId;

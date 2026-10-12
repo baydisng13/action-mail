@@ -105,7 +105,7 @@ function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
 							<td className="py-2.5 pr-3 text-muted-foreground">{p.userEmail ?? "-"}</td>
 							<td className="py-2.5 pr-3 capitalize">{p.method}</td>
 							<td className="py-2.5 pr-3 capitalize">
-								{p.plan} · {p.periodMonths}mo
+								{p.plan} · {p.periodMonths}mo{p.plan === "team" ? ` · ${p.seats} seats` : ""}
 							</td>
 							<td className="py-2.5 pr-3 tabular-nums">
 								{(p.amountMinor / 100).toLocaleString("en-US")} {p.currency.toUpperCase()}

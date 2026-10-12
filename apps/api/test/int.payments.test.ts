@@ -4,11 +4,14 @@ import { NestFactory } from "@nestjs/core";
 import { eq } from "drizzle-orm";
 import { ChapaService } from "../src/payments/chapa.service";
 import { TelebirrService } from "../src/payments/telebirr.service";
+import { PaymentsService } from "../src/payments/payments.service";
+import { OrgsService } from "../src/orgs/orgs.service";
+import { LimitsService } from "../src/billing/limits.service";
 import { AppModule } from "../src/app.module";
 import { signAccessToken } from "../src/common/jwt";
 import { writeSetting } from "../src/config/settings.store";
-import { memberships, payments, subscriptions, telebirrTransactions, users } from "../src/db/schema";
-import { boot, db, makeUser, shutdown, uniq } from "./helpers";
+import { memberships, organizations, payments, subscriptions, telebirrTransactions, users } from "../src/db/schema";
+import { asMemberOf, boot, db, makeUser, refreshOrg, shutdown, uniq } from "./helpers";
 
 let app: INestApplicationContext;
 beforeAll(async () => {
@@ -106,5 +109,62 @@ describe("admin payments access", () => {
 		const adminToken = await signAccessToken({ sub: adminUserId, org: adminOrgId });
 		const allowed = await fetch(`${url}/api/admin/payments`, { headers: { authorization: `Bearer ${adminToken}` } });
 		expect(allowed.status).toBe(200);
+	});
+});
+
+describe("Birr Team seat packs", () => {
+	it("a Chapa Team purchase of N seats yields an N-seat Team and allows N members", async () => {
+		const chapa = app.get(ChapaService);
+		const orgs = app.get(OrgsService);
+		const limits = app.get(LimitsService);
+		const u = await makeUser(app);
+		const team = await orgs.create(u, "SeatPack Co");
+		const inTeam = await refreshOrg(app, await asMemberOf(app, u, team.id, "owner"));
+
+		const N = 4;
+		const txRef = `ps_${uniq()}`;
+		const [row] = await db(app)
+			.insert(payments)
+			.values({ organizationId: team.id, userId: u.userId, method: "chapa", plan: "team", periodMonths: 3, seats: N, amountMinor: 4 * 12 * 3 * 167 * 100, currency: "etb", externalRef: txRef })
+			.returning();
+		await chapa.handleWebhook(txRef, { tx_ref: txRef, status: "success" });
+
+		const [sub] = await db(app).select().from(subscriptions).where(eq(subscriptions.polarSubscriptionId, `chapa_${row.id}`));
+		expect(sub.seats).toBe(N);
+		expect(sub.plan).toBe("team");
+		// A 3-month pack must end ~3 months out, not 1.
+		expect(sub.currentPeriodEnd).not.toBeNull();
+		const months = (sub.currentPeriodEnd!.getTime() - Date.now()) / 86400_000;
+		expect(months).toBeGreaterThan(80);
+
+		const [org] = await db(app).select().from(organizations).where(eq(organizations.id, team.id));
+		expect(org.plan).toBe("team");
+		expect(org.seats).toBe(N);
+
+		// Owner is 1 seat; can invite up to N total, then the (N+1)th is gated.
+		const ctx = { ...inTeam, org };
+		for (let i = 0; i < N - 1; i++) {
+			await orgs.invite(ctx, `seat${i}-${uniq()}@example.test`, "member");
+		}
+		const usage = await limits.usage(org);
+		expect(usage.seatsLimit).toBe(N);
+		expect(usage.seatsUsed).toBe(N);
+		await expect(orgs.invite(ctx, `over-${uniq()}@example.test`, "member")).rejects.toMatchObject({ code: "seat_limit" });
+	});
+
+	it("the manual-proof approval path carries the seat count onto the subscription", async () => {
+		const pay = app.get(PaymentsService);
+		const orgs = app.get(OrgsService);
+		const u = await makeUser(app);
+		const team = await orgs.create(u, "Manual Seats Co");
+		const [row] = await db(app)
+			.insert(payments)
+			.values({ organizationId: team.id, userId: u.userId, method: "manual", plan: "team", periodMonths: 1, seats: 3, amountMinor: 3 * 12 * 167 * 100, currency: "etb" })
+			.returning();
+		await pay.decide(row.id, true, "boss@example.com");
+		const [sub] = await db(app).select().from(subscriptions).where(eq(subscriptions.polarSubscriptionId, `manual_${row.id}`));
+		expect(sub.seats).toBe(3);
+		const [org] = await db(app).select().from(organizations).where(eq(organizations.id, team.id));
+		expect(org.seats).toBe(3);
 	});
 });

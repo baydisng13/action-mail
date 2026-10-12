@@ -1,0 +1,1 @@
+ALTER TABLE "payments" ADD COLUMN "seats" integer DEFAULT 1 NOT NULL;
