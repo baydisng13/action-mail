@@ -103,14 +103,13 @@ describe("plan limits (enforced in the api)", () => {
 		await expect(limits.meterAi(u.org)).rejects.toMatchObject({ code: "ai_limit" });
 	});
 
-	it("seats: personal workspaces can't invite; free team has 2 seats", async () => {
+	it("seats: personal workspaces can't invite; a free team is single-user", async () => {
 		const u = await makeUser(app);
 		const orgs = app.get(OrgsService);
 		await expect(orgs.invite(u, "x@example.test", "member")).rejects.toMatchObject({ code: "personal_workspace" });
 		const team = await orgs.create(u, "Team");
 		const inTeam = await refreshOrg(app, await asMemberOf(app, u, team.id, "owner"));
-		const inv = await orgs.invite(inTeam, "first@example.test", "member");
-		expect(inv.link).toContain("/invite/");
-		await expect(orgs.invite(inTeam, "second@example.test", "member")).rejects.toMatchObject({ status: 402, code: "seat_limit" });
+		// Free is one seat, taken by the owner: inviting anyone is gated until they upgrade.
+		await expect(orgs.invite(inTeam, "first@example.test", "member")).rejects.toMatchObject({ status: 402, code: "seat_limit" });
 	});
 });

@@ -1,4 +1,5 @@
-import type { InviteView, MeResponse, Role } from "@postscript/types";
+import { type InviteView, type MeResponse, PLANS, type Role } from "@postscript/types";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Copy, Trash2, UserMinus } from "lucide-react";
 import { useState } from "react";
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Section } from "@/features/settings/section";
 import { getApiError } from "@/lib/api-client";
+import { billingApi } from "@/features/billing/api";
 import { orgsApi } from "../api";
 import { useMembers, useOrgMutation, useSwitchOrg } from "../hooks";
 import { CreateOrgDialog } from "./workspace-switcher";
@@ -63,7 +65,11 @@ function MembersSection({ me, canManage }: { me: MeResponse; canManage: boolean 
 	const revoke = useOrgMutation((id: string) => orgsApi.revokeInvite(id));
 	const setMemberRole = useOrgMutation((v: { userId: string; role: Exclude<Role, "owner"> }) => orgsApi.setRole(v.userId, v.role));
 	const remove = useOrgMutation((userId: string) => orgsApi.removeMember(userId));
-	const seatsLabel = `${me.usage.seatsUsed} of ${me.usage.seatsLimit} seats used`;
+	const billing = useQuery({ queryKey: ["billing"], queryFn: billingApi.summary, enabled: canManage });
+	const perSeatBilling = billing.data?.perSeatBilling ?? false;
+	const seatsLabel = perSeatBilling
+		? `${me.usage.seatsUsed} seats in use, billed per seat`
+		: `${me.usage.seatsUsed} of ${me.usage.seatsLimit} seats used`;
 
 	const copy = (link: string) => {
 		navigator.clipboard?.writeText(link).then(
@@ -169,13 +175,19 @@ function MembersSection({ me, canManage }: { me: MeResponse; canManage: boolean 
 											toast.success(link ? "Invite created. Email is not set up, so share the link." : "Invite sent");
 										},
 										onError: (err) => {
-											if (getApiError(err).status !== 402) toast.error(getApiError(err).message);
+											// 402 = out of seats: show the message (buy more seats / upgrade).
+											toast.error(getApiError(err).message);
 										},
 									},
 								);
 							}}
 						>
 							<p className="text-xs font-medium text-muted-foreground">Invite someone</p>
+							{perSeatBilling && (
+								<p className="text-xs text-muted-foreground" data-testid="per-seat-notice">
+									When they accept, a seat is added at ${PLANS.team.priceMonthly}/seat per month and your bill is prorated right away.
+								</p>
+							)}
 							<div className="flex flex-wrap gap-2">
 								<Input
 									type="email"

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import type { BillingSummary, CheckoutInput, PlanId } from "@postscript/types";
+import { type BillingSummary, type CheckoutInput, type PlanId, TEAM_MIN_SEATS } from "@postscript/types";
 import { and, desc, eq } from "drizzle-orm";
 import type { AuthCtx } from "../common/auth";
 import { ApiError } from "../common/errors";
@@ -8,7 +8,7 @@ import { env, features } from "../config/env";
 import { DB, type Db } from "../db/db";
 import { memberships, organizations, subscriptions, webhookEvents } from "../db/schema";
 import { QueueService } from "../queue/queue.service";
-import { resolvePlan } from "./plan-resolver";
+import { isEntitled, resolvePlan } from "./plan-resolver";
 import { availableIntervals, planForProduct, polar, productFor } from "./polar";
 
 interface PolarSubscriptionData {
@@ -29,6 +29,11 @@ interface PolarSubscriptionData {
 	customer?: { id?: string; external_id?: string | null };
 }
 
+/** Birr packs create synthetic subscription rows keyed `<method>_<paymentId>`. */
+export function isSyntheticSub(polarSubscriptionId: string): boolean {
+	return /^(chapa|telebirr|manual)_/.test(polarSubscriptionId);
+}
+
 @Injectable()
 export class BillingService {
 	constructor(
@@ -44,10 +49,12 @@ export class BillingService {
 			.orderBy(desc(subscriptions.updatedAt))
 			.limit(1);
 		const resolved = resolvePlan(ctx.org, sub ? [sub] : []);
+		const perSeatBilling = Boolean(sub && sub.plan === "team" && !isSyntheticSub(sub.polarSubscriptionId) && isEntitled(sub));
 		return {
 			configured: features.billing(),
 			plan: ctx.org.plan,
 			source: ctx.org.compPlan ? "comp" : resolved.source,
+			perSeatBilling,
 			subscription: sub
 				? {
 						status: sub.status,
@@ -71,7 +78,7 @@ export class BillingService {
 		const productId = productFor(input.plan, input.interval);
 		if (!productId) throw new ApiError(400, "That plan is not available yet", "plan_unavailable");
 		const n = await this.db.$count(memberships, eq(memberships.organizationId, ctx.orgId));
-		const seats = input.plan === "team" ? Math.max(input.seats ?? 1, n, 1) : undefined;
+		const seats = input.plan === "team" ? Math.max(input.seats ?? TEAM_MIN_SEATS, n, TEAM_MIN_SEATS) : undefined;
 		try {
 			const checkout = await polar().checkouts.create({
 				products: [productId],
@@ -191,6 +198,47 @@ export class BillingService {
 			await this.db.update(organizations).set({ polarCustomerId: values.polarCustomerId }).where(eq(organizations.id, org.id));
 		}
 		await this.recomputePlan(org.id);
+	}
+
+	/**
+	 * The org's live, entitled USD (Polar) Team subscription, or null. Birr packs
+	 * (synthetic rows) and non-Team / expired subs are excluded. Pure DB read, so
+	 * it also drives the invite seat policy, not just seat syncing.
+	 */
+	async activePolarTeamSub(orgId: string) {
+		const subs = await this.db.select().from(subscriptions).where(eq(subscriptions.organizationId, orgId));
+		return subs.find((s) => s.plan === "team" && !isSyntheticSub(s.polarSubscriptionId) && isEntitled(s)) ?? null;
+	}
+
+	/**
+	 * Slack-style live seats: set the Polar quantity to the current membership
+	 * count (owner + accepted members), never below the Team minimum, and let
+	 * Polar prorate. Safe to call on every membership change:
+	 *  - skips birr/synthetic packs and orgs with no active Polar Team sub;
+	 *  - idempotent — only calls Polar when the quantity actually differs;
+	 *  - writes the new seats locally with a fresh source timestamp, so the
+	 *    inbound webhook for our own change reconciles instead of fighting us
+	 *    (the out-of-order guard in applySubscription drops a stale one).
+	 */
+	async syncSeats(orgId: string): Promise<void> {
+		if (!features.billing()) return;
+		const target = await this.activePolarTeamSub(orgId);
+		if (!target) return;
+		const liveSeats = await this.db.$count(memberships, eq(memberships.organizationId, orgId));
+		const desired = Math.max(TEAM_MIN_SEATS, liveSeats);
+		if (desired === target.seats) return;
+		try {
+			await polar().subscriptions.update(target.polarSubscriptionId, { seats: desired, proration_behavior: "prorate" });
+		} catch (err) {
+			log.error("billing.sync_seats_failed", { orgId, subscriptionId: target.polarSubscriptionId, err: err as Error });
+			return;
+		}
+		await this.db
+			.update(subscriptions)
+			.set({ seats: desired, sourceUpdatedAt: new Date() })
+			.where(eq(subscriptions.id, target.id));
+		await this.recomputePlan(orgId);
+		log.info("billing.seats_synced", { orgId, from: target.seats, to: desired });
 	}
 
 	/** Recompute and store the org's effective plan + seats. */

@@ -62,6 +62,8 @@ export interface BillingSummary {
 	configured: boolean;
 	plan: PlanId;
 	source: "free" | "subscription" | "comp";
+	/** True when the org is on a live USD (Polar) Team sub billed per seat. */
+	perSeatBilling: boolean;
 	subscription: null | {
 		status: string;
 		plan: PlanId;

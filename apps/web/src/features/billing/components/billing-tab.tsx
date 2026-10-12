@@ -61,6 +61,15 @@ export function BillingTab({ me }: { me: MeResponse }) {
 									{b.subscription.status !== "active" && ` (${b.subscription.status})`}
 								</p>
 							)}
+							{b.subscription && b.subscription.seats > 1 && (
+								<p className="mt-1 text-sm text-muted-foreground" data-testid="seats-billed-used">
+									{me.usage.seatsUsed} of {b.subscription.seats} seats in use
+									{b.subscription.seats > me.usage.seatsUsed
+										? ` — you are paying for ${b.subscription.seats - me.usage.seatsUsed} empty seat${b.subscription.seats - me.usage.seatsUsed === 1 ? "" : "s"}.`
+										: "."}
+									{b.perSeatBilling ? " Seats adjust automatically as members join or leave." : ""}
+								</p>
+							)}
 						</div>
 
 						{!b.configured ? (

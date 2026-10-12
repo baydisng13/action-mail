@@ -46,7 +46,7 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
 			mailboxesPerUser: 1,
 			mailboxesPerSeat: 1,
 			aiActionsPerSeat: 50,
-			maxSeats: 2,
+			maxSeats: 1,
 			autoTriage: false,
 		},
 		features: [
@@ -123,7 +123,9 @@ export interface EffectiveLimits {
 
 export function effectiveLimits(plan: PlanId, paidSeats = 1): EffectiveLimits {
 	const def = PLANS[plan] ?? PLANS.free;
-	const seats = def.limits.maxSeats ?? Math.max(1, paidSeats);
+	// Per-seat plans (Team) never bill below the Team minimum; others use maxSeats.
+	const floor = def.perSeat ? TEAM_MIN_SEATS : 1;
+	const seats = def.limits.maxSeats ?? Math.max(floor, paidSeats);
 	const billedSeats = def.perSeat ? seats : 1;
 	return {
 		plan: def.id,

@@ -43,15 +43,19 @@ describe("plan limits", () => {
 	});
 
 	it("seat limit counts members plus pending invites", () => {
-		expect(checkSeatLimit(effectiveLimits("free"), 1).ok).toBe(true);
-		expect(checkSeatLimit(effectiveLimits("free"), 2).ok).toBe(false);
+		// Free is single-user: one seat, taken by the owner.
+		expect(checkSeatLimit(effectiveLimits("free"), 0).ok).toBe(true);
+		expect(checkSeatLimit(effectiveLimits("free"), 1).ok).toBe(false);
 		expect(checkSeatLimit(effectiveLimits("pro"), 1).ok).toBe(false);
 		expect(checkSeatLimit(effectiveLimits("team", 10), 9).ok).toBe(true);
 	});
 
-	it("unknown plan falls back to free and team seats never drop below one", () => {
+	it("free is single-user and team never bills below the 2-seat minimum", () => {
 		expect(effectiveLimits("bogus" as never).plan).toBe("free");
-		expect(effectiveLimits("team", 0).seats).toBe(1);
+		expect(effectiveLimits("free").seats).toBe(1);
+		expect(effectiveLimits("team", 0).seats).toBe(2);
+		expect(effectiveLimits("team", 1).seats).toBe(2);
+		expect(effectiveLimits("team", 5).seats).toBe(5);
 	});
 
 	it("usage period is UTC year-month", () => {

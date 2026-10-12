@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { InvitePreview, InviteView, MemberView, OrgSummary, Role } from "@postscript/types";
 import { and, asc, eq, gt, isNull } from "drizzle-orm";
 import { createPersonalWorkspace, slugify } from "../auth/auth.service";
+import { BillingService } from "../billing/billing.service";
 import { LimitsService } from "../billing/limits.service";
 import { isEntitled } from "../billing/plan-resolver";
 import type { AuthCtx } from "../common/auth";
@@ -20,6 +21,7 @@ export class OrgsService {
 	constructor(
 		@Inject(DB) private readonly db: Db,
 		private readonly limits: LimitsService,
+		private readonly billing: BillingService,
 		private readonly email: EmailService,
 		private readonly cache: ContentCache,
 	) {}
@@ -99,7 +101,11 @@ export class OrgsService {
 
 	async invite(ctx: AuthCtx, emailRaw: string, role: Role): Promise<InviteView> {
 		const email = emailRaw.toLowerCase().trim();
-		await this.limits.assertSeatAvailable(ctx.org);
+		// A live USD (Polar) Team can oversell: accepting the invite adds a seat and
+		// prorates. Every other case (personal, free, pro, birr pack, comp) keeps the
+		// hard gate — assertSeatAvailable also rejects personal workspaces.
+		const usdTeam = await this.billing.activePolarTeamSub(ctx.orgId);
+		if (!usdTeam) await this.limits.assertSeatAvailable(ctx.org);
 		const [already] = await this.db
 			.select({ id: users.id })
 			.from(users)
@@ -183,6 +189,8 @@ export class OrgsService {
 				.onConflictDoNothing();
 			await tx.update(invites).set({ acceptedAt: new Date() }).where(eq(invites.id, row.i.id));
 		});
+		// USD Team: a new accepted member is a new paid seat — push the quantity up.
+		await this.billing.syncSeats(row.i.organizationId);
 		return row.i.organizationId;
 	}
 
@@ -221,5 +229,7 @@ export class OrgsService {
 			await tx.delete(memberships).where(eq(memberships.id, target.id));
 		});
 		for (const b of boxes) await this.cache.purgeMailbox(ctx.orgId, b.id);
+		// USD Team: one fewer member means one fewer paid seat (Polar credits the proration).
+		await this.billing.syncSeats(ctx.orgId);
 	}
 }
