@@ -1,7 +1,8 @@
 import { Inject, Injectable, type OnApplicationBootstrap, type OnApplicationShutdown } from "@nestjs/common";
 import { type Job, Worker } from "bullmq";
-import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import type { Redis } from "ioredis";
+import { PLANS } from "@postscript/types";
 import { AiService } from "../ai/ai.service";
 import { BillingService } from "../billing/billing.service";
 import { LimitsService } from "../billing/limits.service";
@@ -9,11 +10,23 @@ import { ApiError } from "../common/errors";
 import { log } from "../common/logger";
 import { env } from "../config/env";
 import { DB, type Db } from "../db/db";
-import { drafts, mailboxes, organizations, outbox, refreshTokens, usageCounters, verificationTokens, webhookEvents } from "../db/schema";
+import {
+	drafts,
+	mailboxes,
+	organizations,
+	outbox,
+	refreshTokens,
+	subscriptions,
+	usageCounters,
+	users,
+	verificationTokens,
+	webhookEvents,
+} from "../db/schema";
 import { deliverEmail } from "../email/email.service";
 import { ActionsService } from "../mail/actions.service";
 import { ComposeService } from "../mail/compose.service";
 import { SyncService } from "../mail/sync.service";
+import { PaymentsService } from "../payments/payments.service";
 import { createRedis, REDIS } from "../redis/redis.module";
 import { QueueService } from "../queue/queue.service";
 import {
@@ -43,6 +56,7 @@ export class WorkerService implements OnApplicationBootstrap, OnApplicationShutd
 		private readonly billing: BillingService,
 		private readonly ai: AiService,
 		private readonly limits: LimitsService,
+		private readonly payments: PaymentsService,
 	) {}
 
 	private start<T>(name: string, concurrency: number, fn: (job: Job<T>) => Promise<unknown>) {
@@ -161,10 +175,55 @@ export class WorkerService implements OnApplicationBootstrap, OnApplicationShutd
 		const cutoff = new Date();
 		cutoff.setUTCMonth(cutoff.getUTCMonth() - 13);
 		await this.db.delete(usageCounters).where(lt(usageCounters.period, cutoff.toISOString().slice(0, 7)));
-		return { ok: true };
+		await this.etbSubscriptionSweep();
+		const removedProofs = await this.payments.cleanupOldProofs();
+		return { ok: true, removedProofs };
+	}
+
+	/**
+	 * ETB (Chapa/Telebirr/manual) subscriptions are prepaid and do not
+	 * auto-renew. Email a reminder at 7 and 1 days before currentPeriodEnd,
+	 * then downgrade to Free 3 days after it passes (a grace period).
+	 */
+	private async etbSubscriptionSweep(): Promise<void> {
+		const day = 86400_000;
+		const rows = await this.db
+			.select({ sub: subscriptions, org: organizations })
+			.from(subscriptions)
+			.innerJoin(organizations, eq(organizations.id, subscriptions.organizationId))
+			.where(and(eq(subscriptions.status, "canceled"), isNull(subscriptions.endedAt), sql`${subscriptions.polarSubscriptionId} ~ '^(chapa|telebirr|manual)_'`));
+		for (const { sub, org } of rows) {
+			if (!sub.currentPeriodEnd) continue;
+			const daysLeft = (sub.currentPeriodEnd.getTime() - Date.now()) / day;
+			const [owner] = await this.db.select({ email: users.email }).from(users).where(eq(users.id, org.ownerUserId)).limit(1);
+			if (daysLeft <= -3) {
+				await this.db.update(subscriptions).set({ endedAt: sub.currentPeriodEnd }).where(eq(subscriptions.id, sub.id));
+				await this.billing.recomputePlan(org.id);
+				continue;
+			}
+			if (!owner) continue;
+			const planName = PLANS[sub.plan].name;
+			if (daysLeft <= 7.5 && daysLeft > 6.5) {
+				await deliverEmail(reminderEmail(owner.email, planName, sub.currentPeriodEnd, 7));
+			} else if (daysLeft <= 1.5 && daysLeft > 0.5) {
+				await deliverEmail(reminderEmail(owner.email, planName, sub.currentPeriodEnd, 1));
+			}
+		}
 	}
 
 	async onApplicationShutdown() {
 		await Promise.all(this.workers.map((w) => w.close().catch(() => undefined)));
 	}
+}
+
+function reminderEmail(to: string, planName: string, periodEnd: Date, daysLeft: number) {
+	const date = periodEnd.toLocaleDateString();
+	const subject = daysLeft === 1 ? `Your ${planName} plan ends tomorrow` : `Your ${planName} plan ends in ${daysLeft} days`;
+	const text = `Your ${planName} plan ends on ${date}. Pay again to keep it, or it will move to the Free plan after a 3 day grace period.`;
+	return {
+		to,
+		subject,
+		text,
+		html: `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1a1a1a;max-width:520px"><p>${text}</p><p style="color:#777;font-size:13px;margin-top:32px">Postscript</p></div>`,
+	};
 }

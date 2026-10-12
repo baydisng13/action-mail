@@ -15,6 +15,7 @@ import { aiConfig } from "../ai/provider";
 import { polar } from "../billing/polar";
 import { DB, type Db } from "../db/db";
 import { publishSettingsChanged, setting, settingSource, writeSetting } from "../config/settings.store";
+import { TelebirrService } from "../payments/telebirr.service";
 
 const SECRET_KEYS = new Set<SettingKey>(
 	SETTING_GROUPS.flatMap((g) => g.fields.filter((f) => f.secret).map((f) => f.key)),
@@ -22,7 +23,10 @@ const SECRET_KEYS = new Set<SettingKey>(
 
 @Injectable()
 export class PlatformSettingsService {
-	constructor(@Inject(DB) private readonly db: Db) {}
+	constructor(
+		@Inject(DB) private readonly db: Db,
+		private readonly telebirr: TelebirrService,
+	) {}
 
 	async get(): Promise<PlatformSettingsResponse> {
 		const items: SettingItem[] = SETTING_GROUPS.flatMap((g) => g.fields).map((f) => {
@@ -37,6 +41,7 @@ export class PlatformSettingsService {
 			items,
 			googleRedirectUris: [googleRedirectUri(), gmailRedirectUri()],
 			polarWebhookUrl: `${env().API_URL}/api/billing/webhook`,
+			chapaWebhookUrl: `${env().API_URL}/api/payments/chapa/webhook`,
 		};
 	}
 
@@ -53,17 +58,38 @@ export class PlatformSettingsService {
 		return this.get();
 	}
 
-	async test(group: SettingGroupId, testAddress?: string): Promise<SettingTestResult> {
+	async test(group: SettingGroupId, testAddress?: string, testInput?: string): Promise<SettingTestResult> {
 		try {
 			if (group === "google") return await this.testGoogle();
 			if (group === "ai") return await this.testAi();
 			if (group === "email") return await this.testEmail(testAddress);
 			if (group === "payments") return await this.testPolar();
+			if (group === "chapa") return await this.testChapa();
+			if (group === "telebirr") return await this.testTelebirr(testInput);
+			if (group === "currency" || group === "methods") return { ok: true, message: "Nothing to test for this group." };
 			throw new ApiError(400, "Unknown group", "invalid_input");
 		} catch (err) {
 			if (err instanceof ApiError) return { ok: false, message: err.message };
 			return { ok: false, message: err instanceof Error ? err.message : "Test failed" };
 		}
+	}
+
+	private async testChapa(): Promise<SettingTestResult> {
+		const key = setting("CHAPA_SECRET_KEY");
+		if (!key) return { ok: false, message: "Set the secret key, then save, before testing." };
+		const res = await fetch("https://api.chapa.co/v1/transaction/verify/postscript-settings-check", {
+			headers: { authorization: `Bearer ${key}` },
+			signal: AbortSignal.timeout(10000),
+		});
+		// A made-up tx_ref returns 400/404 for a valid key, 401 for a bad one.
+		if (res.status === 401) return { ok: false, message: "Chapa rejected this secret key." };
+		return { ok: true, message: "The secret key is accepted by Chapa." };
+	}
+
+	private async testTelebirr(testInput?: string): Promise<SettingTestResult> {
+		if (!testInput) return { ok: false, message: "Enter a receipt transaction id above to test." };
+		const r = await this.telebirr.testReceipt(testInput);
+		return { ok: r.ok, message: r.message, fields: r.fields as unknown as Record<string, string | number | null> };
 	}
 
 	private async testGoogle(): Promise<SettingTestResult> {

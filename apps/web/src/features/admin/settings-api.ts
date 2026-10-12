@@ -8,7 +8,7 @@ export const platformSettingsApi = {
 	async update(updates: Record<string, string>): Promise<PlatformSettingsResponse> {
 		return (await apiClient.put<PlatformSettingsResponse>("/api/admin/settings", { updates })).data;
 	},
-	async test(group: SettingGroupId, testAddress?: string): Promise<SettingTestResult> {
-		return (await apiClient.post<SettingTestResult>(`/api/admin/settings/test/${group}`, { testAddress })).data;
+	async test(group: SettingGroupId, testAddress?: string, testInput?: string): Promise<SettingTestResult> {
+		return (await apiClient.post<SettingTestResult>(`/api/admin/settings/test/${group}`, { testAddress, testInput })).data;
 	},
 };

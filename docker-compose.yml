@@ -32,6 +32,19 @@ x-api-env: &api-env
   POLAR_PRODUCT_PRO_YEARLY: ${POLAR_PRODUCT_PRO_YEARLY:-}
   POLAR_PRODUCT_TEAM_MONTHLY: ${POLAR_PRODUCT_TEAM_MONTHLY:-}
   POLAR_PRODUCT_TEAM_YEARLY: ${POLAR_PRODUCT_TEAM_YEARLY:-}
+  USD_TO_ETB: ${USD_TO_ETB:-167}
+  PAYMENT_POLAR_ENABLED: ${PAYMENT_POLAR_ENABLED:-true}
+  PAYMENT_CHAPA_ENABLED: ${PAYMENT_CHAPA_ENABLED:-false}
+  PAYMENT_TELEBIRR_ENABLED: ${PAYMENT_TELEBIRR_ENABLED:-false}
+  PAYMENT_MANUAL_ENABLED: ${PAYMENT_MANUAL_ENABLED:-false}
+  CHAPA_SECRET_KEY: ${CHAPA_SECRET_KEY:-}
+  CHAPA_WEBHOOK_SECRET: ${CHAPA_WEBHOOK_SECRET:-}
+  TELEBIRR_MERCHANT_NUMBER: ${TELEBIRR_MERCHANT_NUMBER:-}
+  TELEBIRR_MERCHANT_NAME: ${TELEBIRR_MERCHANT_NAME:-}
+  TELEBIRR_RELAY_URL: ${TELEBIRR_RELAY_URL:-}
+  TELEBIRR_RELAY_TOKEN: ${TELEBIRR_RELAY_TOKEN:-}
+  TELEBIRR_RECEIPT_BASE: ${TELEBIRR_RECEIPT_BASE:-https://transactioninfo.ethiotelecom.et/receipt/}
+  PAYMENT_PROOFS_DIR: /data/payment-proofs
   SYNC_INTERVAL_MINUTES: ${SYNC_INTERVAL_MINUTES:-10}
   LOG_LEVEL: ${LOG_LEVEL:-info}
 
@@ -80,6 +93,8 @@ services:
     environment:
       <<: *api-env
       PORT: 3000
+    volumes:
+      - payment_proofs:/data/payment-proofs
     expose:
       - "3000"
     networks:
@@ -105,6 +120,8 @@ services:
       api: { condition: service_healthy }
     environment:
       <<: *api-env
+    volumes:
+      - payment_proofs:/data/payment-proofs
 
   web:
     build:
@@ -127,3 +144,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  payment_proofs:

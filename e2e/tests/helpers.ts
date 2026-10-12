@@ -27,6 +27,20 @@ export async function openSettings(page: Page, tab?: "account" | "workspace" | "
 	await expect(page.getByTestId("workspace-switcher")).toBeVisible();
 }
 
+/** Log in as the platform admin (PLATFORM_ADMIN_EMAILS in e2e/e2e.env), registering once if needed. */
+export async function loginOrRegisterAdmin(page: Page) {
+	const email = "theodore@digicom.et";
+	await page.goto("/login");
+	await page.locator("#email").fill(email);
+	await page.locator("#password").fill(PASSWORD);
+	await page.getByTestId("login-submit").click();
+	const loggedIn = await page
+		.waitForURL(/\/app|\/onboarding/, { timeout: 8_000 })
+		.then(() => true)
+		.catch(() => false);
+	if (!loggedIn) await register(page, { email, name: "Theodore" });
+}
+
 /** Connect a GreenMail IMAP mailbox through the dialog (Settings > Mailboxes). */
 export async function connectImap(page: Page, email: string) {
 	await openSettings(page, "mailboxes");

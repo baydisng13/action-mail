@@ -27,6 +27,7 @@ import { Route as AppTodosRouteImport } from './routes/app.todos'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppAdminRouteImport } from './routes/app.admin'
 import { Route as AppAdminSettingsRouteImport } from './routes/app.admin.settings'
+import { Route as AppAdminPaymentsRouteImport } from './routes/app.admin.payments'
 
 const VerifyEmailRoute = VerifyEmailRouteImport.update({
   id: '/verify-email',
@@ -118,6 +119,11 @@ const AppAdminSettingsRoute = AppAdminSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppAdminRoute,
 } as any)
+const AppAdminPaymentsRoute = AppAdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AppAdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/app/': typeof AppIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
+  '/app/admin/payments': typeof AppAdminPaymentsRoute
   '/app/admin/settings': typeof AppAdminSettingsRoute
 }
 export interface FileRoutesByTo {
@@ -155,6 +162,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/app': typeof AppIndexRoute
   '/onboarding': typeof OnboardingIndexRoute
+  '/app/admin/payments': typeof AppAdminPaymentsRoute
   '/app/admin/settings': typeof AppAdminSettingsRoute
 }
 export interface FileRoutesById {
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/app/': typeof AppIndexRoute
   '/onboarding/': typeof OnboardingIndexRoute
+  '/app/admin/payments': typeof AppAdminPaymentsRoute
   '/app/admin/settings': typeof AppAdminSettingsRoute
 }
 export interface FileRouteTypes {
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/app/'
     | '/onboarding/'
+    | '/app/admin/payments'
     | '/app/admin/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/app'
     | '/onboarding'
+    | '/app/admin/payments'
     | '/app/admin/settings'
   id:
     | '__root__'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/app/'
     | '/onboarding/'
+    | '/app/admin/payments'
     | '/app/admin/settings'
   fileRoutesById: FileRoutesById
 }
@@ -382,14 +394,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminSettingsRouteImport
       parentRoute: typeof AppAdminRoute
     }
+    '/app/admin/payments': {
+      id: '/app/admin/payments'
+      path: '/payments'
+      fullPath: '/app/admin/payments'
+      preLoaderRoute: typeof AppAdminPaymentsRouteImport
+      parentRoute: typeof AppAdminRoute
+    }
   }
 }
 
 interface AppAdminRouteChildren {
+  AppAdminPaymentsRoute: typeof AppAdminPaymentsRoute
   AppAdminSettingsRoute: typeof AppAdminSettingsRoute
 }
 
 const AppAdminRouteChildren: AppAdminRouteChildren = {
+  AppAdminPaymentsRoute: AppAdminPaymentsRoute,
   AppAdminSettingsRoute: AppAdminSettingsRoute,
 }
 

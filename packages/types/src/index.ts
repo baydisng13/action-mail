@@ -3,6 +3,8 @@ export * from "./auth";
 export * from "./orgs";
 export * from "./mail";
 export * from "./billing";
+export * from "./currency";
+export * from "./payments";
 export * from "./responses";
 export * from "./settings";
 export * from "./endpoints";

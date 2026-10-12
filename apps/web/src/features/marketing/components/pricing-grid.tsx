@@ -1,16 +1,32 @@
-import { type BillingInterval, PLAN_IDS, PLANS } from "@postscript/types";
+import { type BillingInterval, PLAN_IDS, PLANS, detectCurrency, usdToEtbWhole } from "@postscript/types";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { paymentsApi } from "@/features/billing/payments-api";
 import { cn } from "@/lib/utils";
 
-/** The three plans from the shared PLANS config, with a monthly/yearly toggle. */
+/** The three plans from the shared PLANS config, with a monthly/yearly and a USD/ETB toggle. */
 export function PricingGrid() {
 	const [interval, setBillingInterval] = useState<BillingInterval>("month");
+	const [currency, setCurrency] = useState<"usd" | "etb">("usd");
+	const options = useQuery({ queryKey: ["payment-options"], queryFn: paymentsApi.options });
+
+	// Default the toggle from the server's best guess (Cloudflare country), once.
+	useEffect(() => {
+		if (options.data) setCurrency(options.data.suggestedCurrency);
+		else if (typeof Intl !== "undefined") {
+			setCurrency(detectCurrency({ timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }));
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [options.data]);
+
+	const rate = options.data?.usdToEtb ?? 167;
+
 	return (
 		<div>
-			<div className="flex justify-center">
+			<div className="flex flex-wrap items-center justify-center gap-3">
 				<div className="inline-flex rounded-lg bg-white/[0.05] p-1 text-sm" role="tablist">
 					{(["month", "year"] as const).map((i) => (
 						<button
@@ -26,11 +42,27 @@ export function PricingGrid() {
 						</button>
 					))}
 				</div>
+				<div className="inline-flex rounded-lg bg-white/[0.05] p-1 text-sm" role="tablist" data-testid="currency-switch">
+					{(["usd", "etb"] as const).map((c) => (
+						<button
+							key={c}
+							type="button"
+							role="tab"
+							aria-selected={currency === c}
+							data-testid={`currency-${c}`}
+							onClick={() => setCurrency(c)}
+							className={cn("rounded-md px-4 py-1.5 transition-colors", currency === c ? "bg-white/[0.1] text-foreground" : "text-muted-foreground")}
+						>
+							{c.toUpperCase()}
+						</button>
+					))}
+				</div>
 			</div>
 			<div className="mt-10 grid gap-4 md:grid-cols-3">
 				{PLAN_IDS.map((id) => {
 					const p = PLANS[id];
-					const price = interval === "month" ? p.priceMonthly : p.priceYearly;
+					const usdPrice = interval === "month" ? p.priceMonthly : p.priceYearly;
+					const displayPrice = currency === "etb" ? usdToEtbWhole(usdPrice, rate) : usdPrice;
 					const featured = id === "pro";
 					return (
 						<div
@@ -43,10 +75,12 @@ export function PricingGrid() {
 								{featured && <span className="text-xs font-medium text-primary">Most popular</span>}
 							</div>
 							<p className="mt-1 text-sm text-muted-foreground">{p.tagline}</p>
-							<p className="mt-6">
-								<span className="text-4xl font-semibold tracking-tight">${price}</span>
+							<p className="mt-6" data-testid={`plan-${id}-price`}>
+								<span className="text-4xl font-semibold tracking-tight">
+									{currency === "etb" ? `${displayPrice.toLocaleString("en-US")} Birr` : `$${displayPrice}`}
+								</span>
 								<span className="text-sm text-muted-foreground">
-									{price === 0 ? " forever" : `${p.perSeat ? " per seat" : ""} / ${interval === "month" ? "month" : "year"}`}
+									{usdPrice === 0 ? " forever" : `${p.perSeat ? " per seat" : ""} / ${interval === "month" ? "month" : "year"}`}
 								</span>
 							</p>
 							<ul className="mt-6 flex-1 space-y-2.5">
@@ -64,7 +98,9 @@ export function PricingGrid() {
 					);
 				})}
 			</div>
-			<p className="mt-6 text-center text-xs text-muted-foreground">Prices in US dollars. Upgrade or cancel any time from Settings.</p>
+			<p className="mt-6 text-center text-xs text-muted-foreground">
+				{currency === "etb" ? "Prices converted from US dollars and rounded to the nearest birr." : "Prices in US dollars."} Upgrade or cancel any time from Settings.
+			</p>
 		</div>
 	);
 }

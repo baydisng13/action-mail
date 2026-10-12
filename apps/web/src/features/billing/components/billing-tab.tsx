@@ -10,6 +10,8 @@ import { Section } from "@/features/settings/section";
 import { getApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { billingApi } from "../api";
+import { paymentsApi } from "../payments-api";
+import { PayInBirrDialog } from "./pay-in-birr-dialog";
 import { UsageMeter } from "./usage-meter";
 
 const SOURCE = { free: "Free plan", subscription: "Paid subscription", comp: "Granted by Postscript" } as const;
@@ -32,6 +34,8 @@ export function BillingTab({ me }: { me: MeResponse }) {
 
 	const b = billing.data;
 	const current = b?.plan ?? me.activeOrg.plan;
+	const paymentOptions = useQuery({ queryKey: ["payment-options"], queryFn: paymentsApi.options });
+	const anyBirrMethod = Boolean(paymentOptions.data && (paymentOptions.data.methods.chapa || paymentOptions.data.methods.telebirr || paymentOptions.data.methods.manual));
 
 	return (
 		<div className="divide-y divide-white/[0.06]">
@@ -127,6 +131,24 @@ export function BillingTab({ me }: { me: MeResponse }) {
 					</div>
 				)}
 			</Section>
+
+			{anyBirrMethod && (
+				<Section title="Pay in Birr" description="For Ethiopian customers: pay with Chapa, Telebirr, or by sending proof of payment.">
+					<div className="flex flex-wrap gap-2">
+						{(["pro", "team"] as const).map((id) => (
+							<PayInBirrDialog
+								key={id}
+								plan={id}
+								trigger={
+									<Button variant="outline" size="sm" data-testid={`pay-in-birr-${id}`}>
+										Pay in Birr for {PLANS[id].name}
+									</Button>
+								}
+							/>
+						))}
+					</div>
+				</Section>
+			)}
 		</div>
 	);
 }

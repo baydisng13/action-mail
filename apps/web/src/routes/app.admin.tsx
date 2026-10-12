@@ -33,13 +33,22 @@ function AdminPage() {
 			<div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
 				<div className="flex items-center justify-between gap-2">
 					<h1 className="font-display text-3xl tracking-tight">Admin</h1>
-					<Link
-						to="/app/admin/settings"
-						data-testid="nav-platform-settings"
-						className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-white/[0.07] hover:text-foreground"
-					>
-						Platform settings
-					</Link>
+					<div className="flex gap-1">
+						<Link
+							to="/app/admin/payments"
+							data-testid="nav-admin-payments"
+							className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-white/[0.07] hover:text-foreground"
+						>
+							Payments
+						</Link>
+						<Link
+							to="/app/admin/settings"
+							data-testid="nav-platform-settings"
+							className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-white/[0.07] hover:text-foreground"
+						>
+							Platform settings
+						</Link>
+					</div>
 				</div>
 				<Overview />
 				<div className="mt-8 flex flex-wrap items-center gap-2">

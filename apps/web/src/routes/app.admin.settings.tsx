@@ -88,6 +88,7 @@ function GroupCard({
 	const byKey = new Map(items.map((i) => [i.key, i]));
 	const [edits, setEdits] = useState<Record<string, string>>({});
 	const [testAddress, setTestAddress] = useState("");
+	const [testInput, setTestInput] = useState("");
 	const status = statusOf(group, items);
 
 	const save = useMutation({
@@ -101,7 +102,7 @@ function GroupCard({
 	});
 
 	const test = useMutation({
-		mutationFn: () => platformSettingsApi.test(group.id as SettingGroupId, testAddress || undefined),
+		mutationFn: () => platformSettingsApi.test(group.id as SettingGroupId, testAddress || undefined, testInput || undefined),
 		onSuccess: (r) => (r.ok ? toast.success(r.message) : toast.error(r.message)),
 		onError: (err) => toast.error(getApiError(err).message),
 	});
@@ -141,21 +142,50 @@ function GroupCard({
 				{group.fields.map((f) => {
 					const item = byKey.get(f.key);
 					const current = edits[f.key];
+					if (f.kind === "toggle") {
+						const on = current != null ? current === "true" : item?.value === "true";
+						return (
+							<div key={f.key} className="flex items-center justify-between gap-2">
+								<span className="text-sm">{f.label}</span>
+								<button
+									type="button"
+									role="switch"
+									aria-checked={on}
+									data-testid={`setting-toggle-${f.key}`}
+									onClick={() => setEdits((prev) => ({ ...prev, [f.key]: on ? "false" : "true" }))}
+									className={cn("h-6 w-11 shrink-0 rounded-full transition-colors", on ? "bg-primary" : "bg-white/[0.12]")}
+								>
+									<span className={cn("block h-5 w-5 translate-x-0.5 rounded-full bg-white transition-transform", on && "translate-x-[22px]")} />
+								</button>
+							</div>
+						);
+					}
 					return (
 						<div key={f.key} className="flex flex-col gap-1">
 							<label htmlFor={f.key} className="text-xs text-muted-foreground">
 								{f.label}
 							</label>
 							<div className="flex items-center gap-2">
-								<Input
-									id={f.key}
-									data-testid={`setting-input-${f.key}`}
-									type={f.secret ? "password" : "text"}
-									placeholder={f.secret ? (item?.masked ? `Saved: ${item.masked}` : f.placeholder) : (item?.value ?? f.placeholder)}
-									value={current ?? ""}
-									onChange={(e) => setEdits((prev) => ({ ...prev, [f.key]: e.target.value }))}
-									className="h-9"
-								/>
+								{f.kind === "textarea" ? (
+									<textarea
+										id={f.key}
+										data-testid={`setting-input-${f.key}`}
+										placeholder={item?.value ?? f.placeholder}
+										value={current ?? ""}
+										onChange={(e) => setEdits((prev) => ({ ...prev, [f.key]: e.target.value }))}
+										className="h-20 w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none"
+									/>
+								) : (
+									<Input
+										id={f.key}
+										data-testid={`setting-input-${f.key}`}
+										type={f.secret ? "password" : "text"}
+										placeholder={f.secret ? (item?.masked ? `Saved: ${item.masked}` : f.placeholder) : (item?.value ?? f.placeholder)}
+										value={current ?? ""}
+										onChange={(e) => setEdits((prev) => ({ ...prev, [f.key]: e.target.value }))}
+										className="h-9"
+									/>
+								)}
 								{item?.source === "ui" && <span className="shrink-0 text-xs text-muted-foreground">from admin</span>}
 								{item?.source === "env" && <span className="shrink-0 text-xs text-muted-foreground">from env</span>}
 							</div>
@@ -173,6 +203,15 @@ function GroupCard({
 					className="mt-3 h-9"
 				/>
 			)}
+			{group.id === "telebirr" && (
+				<Input
+					data-testid="settings-test-telebirr-txn"
+					placeholder="A known Telebirr receipt transaction id, to test the relay and parser"
+					value={testInput}
+					onChange={(e) => setTestInput(e.target.value)}
+					className="mt-3 h-9"
+				/>
+			)}
 
 			<div className="mt-4 flex items-center gap-2">
 				<button
@@ -184,16 +223,28 @@ function GroupCard({
 				>
 					{save.isPending ? "Saving..." : "Save"}
 				</button>
-				<button
-					type="button"
-					data-testid={`settings-test-${group.id}`}
-					disabled={test.isPending}
-					onClick={() => test.mutate()}
-					className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-sm hover:bg-white/[0.1] disabled:opacity-40"
-				>
-					{test.isPending ? "Testing..." : "Test"}
-				</button>
+				{group.id !== "currency" && group.id !== "methods" && (
+					<button
+						type="button"
+						data-testid={`settings-test-${group.id}`}
+						disabled={test.isPending}
+						onClick={() => test.mutate()}
+						className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-sm hover:bg-white/[0.1] disabled:opacity-40"
+					>
+						{test.isPending ? "Testing..." : "Test"}
+					</button>
+				)}
 			</div>
+			{test.data?.fields && (
+				<dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-white/[0.03] p-3 text-xs">
+					{Object.entries(test.data.fields).map(([k, v]) => (
+						<div key={k} className="contents">
+							<dt className="text-muted-foreground">{k}</dt>
+							<dd>{v == null ? "-" : String(v)}</dd>
+						</div>
+					))}
+				</dl>
+			)}
 		</section>
 	);
 }

@@ -27,7 +27,7 @@ export class PlatformSettingsController {
 	@HttpCode(200)
 	@RateLimit("admin-settings-test", 30)
 	@Post("test/:group")
-	test(@Param("group") group: SettingGroupId, @ZBody(settingsTestEmailSchema) body: { testAddress?: string }) {
-		return this.settings.test(group, body.testAddress);
+	test(@Param("group") group: SettingGroupId, @ZBody(settingsTestEmailSchema) body: { testAddress?: string; testInput?: string }) {
+		return this.settings.test(group, body.testAddress, body.testInput);
 	}
 }

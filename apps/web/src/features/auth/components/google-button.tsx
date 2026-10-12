@@ -9,7 +9,7 @@ export function GoogleButton({ label = "Continue with Google" }: { label?: strin
 	return (
 		<>
 			<Button asChild variant="outline" className="w-full border-white/15 bg-white/[0.03] hover:bg-white/[0.06]">
-				<a href={apiUrl("/api/auth/google")}>
+				<a href={apiUrl("/api/auth/google")} data-testid="google-auth-button">
 					<GoogleGlyph />
 					{label}
 				</a>

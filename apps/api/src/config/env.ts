@@ -6,6 +6,21 @@ const optional = z
 	.optional()
 	.transform((v) => (v && v.trim() ? v.trim() : undefined));
 
+/** Like `optional`, but numeric with a default: "" (compose's unset convention) falls back too. */
+const optionalNumber = (def: number) =>
+	z
+		.string()
+		.optional()
+		.transform((v) => (v && v.trim() ? Number(v.trim()) : def))
+		.pipe(z.number().positive());
+
+/** Like `optional`, but a "true"/"false" string with a default. */
+const optionalBool = (def: "true" | "false") =>
+	z
+		.string()
+		.optional()
+		.transform((v) => (v && v.trim() ? v.trim() : def));
+
 const schema = z.object({
 	NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 	PORT: z.coerce.number().default(3000),
@@ -47,6 +62,28 @@ const schema = z.object({
 	POLAR_PRODUCT_PRO_YEARLY: optional,
 	POLAR_PRODUCT_TEAM_MONTHLY: optional,
 	POLAR_PRODUCT_TEAM_YEARLY: optional,
+
+	/** Birr payments: display conversion and alternate methods for Ethiopia. */
+	USD_TO_ETB: optionalNumber(167),
+	PAYMENT_POLAR_ENABLED: optionalBool("true"),
+	PAYMENT_CHAPA_ENABLED: optionalBool("false"),
+	PAYMENT_TELEBIRR_ENABLED: optionalBool("false"),
+	PAYMENT_MANUAL_ENABLED: optionalBool("false"),
+
+	CHAPA_SECRET_KEY: optional,
+	CHAPA_WEBHOOK_SECRET: optional,
+
+	TELEBIRR_MERCHANT_NUMBER: optional,
+	TELEBIRR_MERCHANT_NAME: optional,
+	TELEBIRR_RELAY_URL: optional,
+	TELEBIRR_RELAY_TOKEN: optional,
+	TELEBIRR_RECEIPT_BASE: z.string().url().default("https://transactioninfo.ethiotelecom.et/receipt/"),
+	TELEBIRR_PAY_INSTRUCTIONS: z
+		.string()
+		.default("Pay the amount shown to the Telebirr number above. After you pay, enter the transaction id from your Telebirr receipt below."),
+
+	/** Local disk path for manual payment proof uploads (a docker volume, not Postgres). */
+	PAYMENT_PROOFS_DIR: z.string().default("/data/payment-proofs"),
 
 	/** Requests per minute per IP on auth endpoints. */
 	AUTH_RATE_LIMIT: z.coerce.number().default(20),
@@ -100,4 +137,22 @@ export function platformAdmins(): string[] {
 
 export function isSecureCookies(): boolean {
 	return env().API_URL.startsWith("https://");
+}
+
+const truthy = (v: string | undefined) => v === "true" || v === "1";
+
+/** A payment method is usable when its toggle is on AND it has the config it needs. */
+export const paymentMethods = {
+	polar: () => truthy(setting("PAYMENT_POLAR_ENABLED")) && features.billing(),
+	chapa: () => truthy(setting("PAYMENT_CHAPA_ENABLED")) && Boolean(setting("CHAPA_SECRET_KEY") && setting("CHAPA_WEBHOOK_SECRET")),
+	telebirr: () =>
+		truthy(setting("PAYMENT_TELEBIRR_ENABLED")) &&
+		Boolean(setting("TELEBIRR_MERCHANT_NUMBER") && setting("TELEBIRR_RELAY_URL") && setting("TELEBIRR_RELAY_TOKEN")),
+	manual: () => truthy(setting("PAYMENT_MANUAL_ENABLED")),
+};
+
+export function usdToEtb(): number {
+	const override = setting("USD_TO_ETB");
+	const n = override ? Number(override) : env().USD_TO_ETB;
+	return Number.isFinite(n) && n > 0 ? n : env().USD_TO_ETB;
 }

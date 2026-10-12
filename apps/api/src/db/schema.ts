@@ -485,6 +485,51 @@ export const todos = pgTable(
 	],
 );
 
+// ─── Birr payments (Chapa, Telebirr, manual proof) ──────────────────────────
+/**
+ * One row per payment attempt in any non-Polar method. On "paid" (or admin
+ * approval for manual), BillingService writes a prepaid, non-renewing row
+ * into `subscriptions` (status "canceled" with a future currentPeriodEnd) so
+ * the usual plan-resolution logic (plan-resolver.ts) just works unchanged.
+ */
+export const payments = pgTable(
+	"payments",
+	{
+		id: id(),
+		organizationId: text("organization_id")
+			.notNull()
+			.references(() => organizations.id, { onDelete: "cascade" }),
+		userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+		method: paymentMethod("method").notNull(),
+		status: paymentStatus("status").notNull().default("pending"),
+		plan: planTier("plan").notNull(),
+		/** Prepaid period length in months (1, 3, 6 or 12). Irrelevant for Polar. */
+		periodMonths: integer("period_months").notNull().default(1),
+		/** Smallest unit: cents for usd, birr*100 for etb (no real subunit). */
+		amountMinor: integer("amount_minor").notNull(),
+		currency: text("currency").notNull(),
+		/** Chapa tx_ref or Telebirr transaction id; null for a manual upload. */
+		externalRef: text("external_ref"),
+		/** Manual proof: key on the payment-proofs volume; deleted after decision + 90 days. */
+		proofFileKey: text("proof_file_key"),
+		note: text("note"),
+		decidedBy: text("decided_by"),
+		decidedAt: ts("decided_at"),
+		createdAt,
+		updatedAt,
+	},
+	(t) => [index("payments_org_idx").on(t.organizationId), index("payments_status_idx").on(t.status)],
+);
+
+/** Telebirr transaction ids, so one receipt can only ever be used once. */
+export const telebirrTransactions = pgTable("telebirr_transactions", {
+	txnId: text("txn_id").primaryKey(),
+	paymentId: text("payment_id")
+		.notNull()
+		.references(() => payments.id, { onDelete: "cascade" }),
+	createdAt,
+});
+
 // ─── Platform settings ───────────────────────────────────────────────────────
 /**
  * Owner-editable overrides for third-party config that otherwise comes from
@@ -524,3 +569,4 @@ export type MailboxFolder = typeof mailboxFolders.$inferSelect;
 export type Thread = typeof threads.$inferSelect;
 export type Draft = typeof drafts.$inferSelect;
 export type OutboxRow = typeof outbox.$inferSelect;
+export type Payment = typeof payments.$inferSelect;

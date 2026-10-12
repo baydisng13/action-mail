@@ -19,6 +19,10 @@ import { ReadService } from "./mail/read.service";
 import { SearchService } from "./mail/search.service";
 import { SyncService } from "./mail/sync.service";
 import { OrgsService } from "./orgs/orgs.service";
+import { ChapaService } from "./payments/chapa.service";
+import { ManualPaymentsService } from "./payments/manual.service";
+import { PaymentsService } from "./payments/payments.service";
+import { TelebirrService } from "./payments/telebirr.service";
 import { QueueModule } from "./queue/queue.module";
 import { RedisModule } from "./redis/redis.module";
 import { TodosService } from "./todos/todos.service";
@@ -42,6 +46,10 @@ const services = [
 	TodosService,
 	SettingsBootstrapService,
 	PlatformSettingsService,
+	PaymentsService,
+	ChapaService,
+	TelebirrService,
+	ManualPaymentsService,
 ];
 
 /** Everything shared by the api and the worker (same image, different entry). */
