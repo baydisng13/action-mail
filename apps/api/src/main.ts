@@ -27,7 +27,7 @@ async function bootstrap() {
 		origin: [e.APP_URL],
 		credentials: true,
 		methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-		allowedHeaders: ["content-type", "authorization"],
+		allowedHeaders: ["content-type", "authorization", "cf-ipcountry"],
 		maxAge: 600,
 	});
 	app.use((req: Request, res: Response, next: NextFunction) => {

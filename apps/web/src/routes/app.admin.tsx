@@ -1,6 +1,6 @@
 import { type AdminOrgRow, PLAN_IDS, PLANS, type PlanId } from "@postscript/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useMatches } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ function AdminPage() {
 	const me = useMe();
 	const [tab, setTab] = useState<"orgs" | "users">("orgs");
 	const [q, setQ] = useState("");
+	const matches = useMatches();
+	const isIndex = matches[matches.length - 1]?.routeId === Route.id;
 	if (me.data && !me.data.user.isPlatformAdmin) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-2 text-center">
@@ -28,6 +30,7 @@ function AdminPage() {
 			</div>
 		);
 	}
+	if (!isIndex) return <Outlet />;
 	return (
 		<div className="h-full overflow-y-auto" data-testid="admin-console">
 			<div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

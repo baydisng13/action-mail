@@ -1,7 +1,7 @@
 import { SETTING_GROUPS, type SettingGroupId, type SettingItem } from "@postscript/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,6 +13,18 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/app/admin/settings")({
 	component: PlatformSettingsPage,
 });
+
+/**
+ * Secret fields always render blank (we never send the real value to the client), so when one is
+ * already configured there's nothing on screen to backspace: a Delete/Backspace press on an
+ * already-empty box fires no input event at all, which otherwise leaves no way to signal "clear
+ * this and fall back to the env var". Catch that keypress directly and record the clear.
+ */
+function clearOnNoOpDelete(e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, key: string, setEdits: Dispatch<SetStateAction<Record<string, string>>>) {
+	if ((e.key === "Delete" || e.key === "Backspace") && e.currentTarget.value === "") {
+		setEdits((prev) => (prev[key] === "" ? prev : { ...prev, [key]: "" }));
+	}
+}
 
 function PlatformSettingsPage() {
 	const me = useMe();
@@ -170,9 +182,10 @@ function GroupCard({
 									<textarea
 										id={f.key}
 										data-testid={`setting-input-${f.key}`}
-										placeholder={item?.value ?? f.placeholder}
-										value={current ?? ""}
+										placeholder={f.placeholder}
+										value={current ?? (f.secret ? "" : (item?.value ?? ""))}
 										onChange={(e) => setEdits((prev) => ({ ...prev, [f.key]: e.target.value }))}
+										onKeyDown={(e) => clearOnNoOpDelete(e, f.key, setEdits)}
 										className="h-20 w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm outline-none"
 									/>
 								) : (
@@ -180,9 +193,10 @@ function GroupCard({
 										id={f.key}
 										data-testid={`setting-input-${f.key}`}
 										type={f.secret ? "password" : "text"}
-										placeholder={f.secret ? (item?.masked ? `Saved: ${item.masked}` : f.placeholder) : (item?.value ?? f.placeholder)}
-										value={current ?? ""}
+										placeholder={f.secret ? (item?.masked ? `Saved: ${item.masked}` : f.placeholder) : f.placeholder}
+										value={current ?? (f.secret ? "" : (item?.value ?? ""))}
 										onChange={(e) => setEdits((prev) => ({ ...prev, [f.key]: e.target.value }))}
+										onKeyDown={(e) => clearOnNoOpDelete(e, f.key, setEdits)}
 										className="h-9"
 									/>
 								)}

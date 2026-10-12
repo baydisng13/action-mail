@@ -30,6 +30,9 @@ COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /repo/apps/api/dist ./dist
 COPY --from=build /repo/apps/api/drizzle ./drizzle
+# Pre-create the proofs mount point owned by the "node" user: a named volume with nothing yet
+# written to it copies this directory's ownership on first mount, so the non-root process can write.
+RUN mkdir -p /data/payment-proofs && chown -R node:node /data/payment-proofs
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
