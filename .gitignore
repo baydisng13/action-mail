@@ -15,3 +15,8 @@ coverage
 .deploy-creds
 e2e/test-results
 e2e/playwright-report
+
+# local deploy files
+.admin-login
+.coolify-app-uuid
+.pnpm-store/
