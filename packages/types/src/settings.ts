@@ -217,3 +217,46 @@ export interface SettingTestResult {
 	/** Telebirr test only: the fields parsed out of the fetched receipt. */
 	fields?: Record<string, string | number | null>;
 }
+
+// ─── Polar self-serve setup ──────────────────────────────────────────────────
+
+/** One of the 4 Polar products Postscript needs: Pro/Team x monthly/yearly. */
+export interface PolarProductStatus {
+	plan: "pro" | "team";
+	interval: "month" | "year";
+	key: SettingKey;
+	productId: string | null;
+	priceId: string | null;
+	amountCents: number | null;
+}
+
+export interface PolarStatus {
+	/** An access token is saved (does not mean it is valid). */
+	connected: boolean;
+	server: "sandbox" | "production" | null;
+	products: PolarProductStatus[];
+	webhookConfigured: boolean;
+	webhookUrl: string;
+}
+
+export interface PolarProductResult extends PolarProductStatus {
+	reused: boolean;
+}
+
+export interface PolarWebhookResult {
+	id: string;
+	url: string;
+	reused: boolean;
+}
+
+export interface PolarAutoConfigureResult {
+	organizationId: string | null;
+	products: PolarProductResult[];
+	webhook: PolarWebhookResult;
+}
+
+export const polarConnectSchema = z.object({
+	accessToken: z.string().min(10).max(500),
+	server: z.enum(["sandbox", "production"]),
+});
+export type PolarConnectInput = z.infer<typeof polarConnectSchema>;

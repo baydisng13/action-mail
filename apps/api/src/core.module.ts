@@ -6,6 +6,7 @@ import { AuthService } from "./auth/auth.service";
 import { SessionService } from "./auth/session.service";
 import { BillingService } from "./billing/billing.service";
 import { LimitsService } from "./billing/limits.service";
+import { PolarSetupService } from "./billing/polar-setup.service";
 import { CommonModule } from "./common/common.module";
 import { PlatformSettingsService } from "./admin/platform-settings.service";
 import { SettingsBootstrapService } from "./config/settings-bootstrap.service";
@@ -35,6 +36,7 @@ const services = [
 	SessionService,
 	BillingService,
 	LimitsService,
+	PolarSetupService,
 	ActionsService,
 	ComposeService,
 	IngestService,

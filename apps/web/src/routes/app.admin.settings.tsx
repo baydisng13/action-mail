@@ -85,6 +85,104 @@ function statusOf(group: (typeof SETTING_GROUPS)[number], items: SettingItem[]):
 	return ok ? "configured" : "not configured";
 }
 
+const PLAN_LABEL: Record<string, string> = { pro: "Pro", team: "Team" };
+const INTERVAL_LABEL: Record<string, string> = { month: "monthly", year: "yearly" };
+
+/**
+ * Self-serve Polar setup: once an access token is saved below, this button calls the Polar API to
+ * create (or reuse) the 4 products/prices and the webhook endpoint, and stores the ids and webhook
+ * secret automatically. No need to click around the Polar dashboard.
+ */
+function PolarAutoSetup({ byKey }: { byKey: Map<string, SettingItem> }) {
+	const qc = useQueryClient();
+	const hasToken = byKey.get("POLAR_ACCESS_TOKEN")?.source !== "unset";
+	const status = useQuery({
+		queryKey: ["admin", "settings", "polar-status"],
+		queryFn: platformSettingsApi.polarStatus,
+	});
+
+	const autoConfigure = useMutation({
+		mutationFn: platformSettingsApi.polarAutoConfigure,
+		onSuccess: () => {
+			toast.success("Polar is configured.");
+			qc.invalidateQueries({ queryKey: ["admin", "settings"] });
+			qc.invalidateQueries({ queryKey: ["admin", "settings", "polar-status"] });
+		},
+		onError: (err) => toast.error(getApiError(err).message),
+	});
+
+	return (
+		<div className="mt-3 rounded-lg border border-white/[0.08] bg-white/[0.03] p-4">
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<div>
+					<p className="text-sm font-medium">Connect Polar</p>
+					<p className="mt-0.5 text-xs text-muted-foreground">
+						Paste your Polar organization access token above, choose sandbox or production, and save. Then run
+						this to create the Pro and Team products, prices and webhook for you.
+					</p>
+				</div>
+				<button
+					type="button"
+					data-testid="polar-auto-configure"
+					disabled={!hasToken || autoConfigure.isPending}
+					onClick={() => autoConfigure.mutate()}
+					className="shrink-0 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-40"
+					title={hasToken ? undefined : "Save an access token first"}
+				>
+					{autoConfigure.isPending
+						? "Configuring..."
+						: status.data?.products.some((p) => p.productId)
+							? "Re-sync Polar"
+							: "Auto-configure Polar"}
+				</button>
+			</div>
+
+			{status.isLoading && <Spinner className="mt-3 h-4 w-4" />}
+
+			{status.data && (
+				<div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="polar-status-grid">
+					{status.data.products.map((p) => (
+						<div key={p.key} className="rounded-lg bg-white/[0.04] p-2 text-xs">
+							<p className="font-medium">
+								{PLAN_LABEL[p.plan]} / {INTERVAL_LABEL[p.interval]}
+							</p>
+							<p className="mt-1 text-muted-foreground">
+								{p.amountCents != null ? `$${(p.amountCents / 100).toFixed(2)}` : "-"}
+								{p.plan === "team" ? " / seat" : ""}
+							</p>
+							<p className={cn("mt-1 truncate", p.productId ? "text-emerald-400" : "text-muted-foreground")}>
+								{p.productId ?? "not created"}
+							</p>
+						</div>
+					))}
+					<div className="col-span-2 rounded-lg bg-white/[0.04] p-2 text-xs sm:col-span-4">
+						<p className="font-medium">Webhook</p>
+						<p className={cn("mt-1", status.data.webhookConfigured ? "text-emerald-400" : "text-muted-foreground")}>
+							{status.data.webhookConfigured ? `Connected -> ${status.data.webhookUrl}` : "Not set up yet"}
+						</p>
+					</div>
+				</div>
+			)}
+
+			{autoConfigure.data && (
+				<div className="mt-3 rounded-lg bg-emerald-500/10 p-3 text-xs" data-testid="polar-auto-configure-result">
+					<p className="text-emerald-400">Done. Here is what happened:</p>
+					<ul className="mt-1 flex flex-col gap-0.5">
+						{autoConfigure.data.products.map((p) => (
+							<li key={p.key}>
+								{PLAN_LABEL[p.plan]} {INTERVAL_LABEL[p.interval]}: {p.reused ? "reused" : "created"} product {p.productId}
+							</li>
+						))}
+						<li>
+							Webhook: {autoConfigure.data.webhook.reused ? "reused" : "created"} ({autoConfigure.data.webhook.id})
+						</li>
+					</ul>
+				</div>
+			)}
+		</div>
+	);
+}
+
 function GroupCard({
 	group,
 	items,
@@ -143,9 +241,12 @@ function GroupCard({
 			</a>
 
 			{group.id === "google" && <RedirectUris uris={googleRedirectUris} />}
+			{group.id === "payments" && <PolarAutoSetup byKey={byKey} />}
 			{group.id === "payments" && polarWebhookUrl && (
 				<div className="mt-3 rounded-lg bg-white/[0.04] p-3 text-xs">
-					<p className="text-muted-foreground">Paste this into the Polar webhook URL:</p>
+					<p className="text-muted-foreground">
+						Or, if you set up the webhook another way, paste this into Polar's webhook URL:
+					</p>
 					<p className="mt-1 font-mono">{polarWebhookUrl}</p>
 				</div>
 			)}

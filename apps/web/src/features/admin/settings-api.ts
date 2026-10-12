@@ -1,4 +1,10 @@
-import type { PlatformSettingsResponse, SettingGroupId, SettingTestResult } from "@postscript/types";
+import type {
+	PlatformSettingsResponse,
+	PolarAutoConfigureResult,
+	PolarStatus,
+	SettingGroupId,
+	SettingTestResult,
+} from "@postscript/types";
 import { apiClient } from "@/lib/api-client";
 
 export const platformSettingsApi = {
@@ -10,5 +16,11 @@ export const platformSettingsApi = {
 	},
 	async test(group: SettingGroupId, testAddress?: string, testInput?: string): Promise<SettingTestResult> {
 		return (await apiClient.post<SettingTestResult>(`/api/admin/settings/test/${group}`, { testAddress, testInput })).data;
+	},
+	async polarStatus(): Promise<PolarStatus> {
+		return (await apiClient.get<PolarStatus>("/api/admin/settings/polar/status")).data;
+	},
+	async polarAutoConfigure(): Promise<PolarAutoConfigureResult> {
+		return (await apiClient.post<PolarAutoConfigureResult>("/api/admin/settings/polar/auto-configure")).data;
 	},
 };
